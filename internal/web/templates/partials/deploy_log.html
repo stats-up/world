@@ -1,0 +1,11 @@
+{{define "deploy_log"}}
+<div id="deploy-log"{{if .Deployment.Running}} hx-get="/deployments/{{.Deployment.ID}}/log" hx-trigger="every 2s" hx-swap="outerHTML"{{end}}>
+  <div class="row">
+    <div>{{template "deploy_status" .Deployment.Status}} <span class="muted">{{.Deployment.Duration}}</span>
+      {{with .Deployment.CommitSHA}}<span class="muted">· commit <code>{{.}}</code></span>{{end}}</div>
+    {{if not .Deployment.Running}}<a class="button" href="/sites/{{.Site.ID}}">Volver al sitio</a>{{end}}
+  </div>
+  {{with .Deployment.Error}}<div class="flash error">{{.}}</div>{{end}}
+  <pre class="log">{{if .Log}}{{.Log}}{{else}}Iniciando…{{end}}</pre>
+</div>
+{{end}}

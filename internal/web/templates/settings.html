@@ -1,0 +1,25 @@
+{{define "title"}}Ajustes{{end}}
+{{define "content"}}
+<h1>Ajustes</h1>
+{{with .Error}}<div class="flash error">{{.}}</div>{{end}}
+
+<form method="post" action="/settings" class="card stack">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <fieldset>
+    <legend>Dominio del panel</legend>
+    <label>Dominio
+      <input name="panel_domain" value="{{.PanelDomain}}" placeholder="panel.miempresa.cl">
+      <small>Crea un registro DNS tipo A apuntando a la IP del servidor. El panel quedará en HTTPS con certificado automático.
+      Después cierra el puerto {{.Port}} en el firewall de Lightsail.</small>
+      {{with .SslipHint}}<small>¿Aún no tienes dominio? Para probar puedes usar <code>{{.}}</code>, que apunta a esta IP sin configurar DNS.</small>{{end}}
+    </label>
+  </fieldset>
+  <fieldset>
+    <legend>Certificados SSL (Let's Encrypt)</legend>
+    <label>Email de contacto (opcional)
+      <input type="email" name="acme_email" value="{{.ACMEEmail}}" placeholder="admin@miempresa.cl">
+    </label>
+  </fieldset>
+  <div class="actions"><button type="submit" class="primary">Guardar</button></div>
+</form>
+{{end}}

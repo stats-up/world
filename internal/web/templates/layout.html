@@ -1,0 +1,32 @@
+{{define "layout"}}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
+  <title>{{block "title" .}}world{{end}} · world</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body{{if .CSRF}} hx-headers='{"X-CSRF-Token": "{{.CSRF}}"}'{{end}}>
+  {{if .User}}
+  <header class="topbar">
+    <a class="brand" href="/">world</a>
+    <nav>
+      <a href="/">Sitios</a>
+      <a href="/settings">Ajustes</a>
+      <a href="/profile">Perfil</a>
+      <form method="post" action="/logout" class="inline">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <button class="link" type="submit">Salir</button>
+      </form>
+    </nav>
+  </header>
+  {{end}}
+  <main class="{{if .User}}container{{else}}narrow{{end}}">
+    {{with .Flash}}<div class="flash {{.Kind}}">{{.Msg}}</div>{{end}}
+    {{template "content" .}}
+  </main>
+  <footer class="footer">world {{.Version}}</footer>
+</body>
+</html>{{end}}

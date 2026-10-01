@@ -1,0 +1,17 @@
+{{define "title"}}Configuración inicial{{end}}
+{{define "content"}}
+<div class="card">
+  <h1>Bienvenido a world</h1>
+  <p class="muted">Crea la cuenta de administrador. El código de instalación se mostró al final de <code>install.sh</code>.
+  También puedes verlo en el servidor con:</p>
+  <pre class="cmd">sudo cat {{.TokenPath}}</pre>
+  {{with .Error}}<div class="flash error">{{.}}</div>{{end}}
+  <form method="post" action="/setup" class="stack">
+    <label>Código de instalación <input name="token" required autocomplete="off"></label>
+    <label>Email <input type="email" name="email" value="{{.Email}}" required autocomplete="username"></label>
+    <label>Contraseña <input type="password" name="password" minlength="10" required autocomplete="new-password"></label>
+    <label>Repetir contraseña <input type="password" name="password_confirm" minlength="10" required autocomplete="new-password"></label>
+    <button type="submit" class="primary">Crear administrador</button>
+  </form>
+</div>
+{{end}}

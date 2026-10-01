@@ -1,0 +1,88 @@
+{{define "title"}}{{.Site.Name}}{{end}}
+{{define "content"}}
+<p class="crumbs"><a href="/">Sitios</a> / {{.Site.Name}}</p>
+<div class="row">
+  <h1>{{.Site.Name}} {{with .Container}}{{template "status" .State}}{{else}}<span class="badge muted">sin desplegar</span>{{end}}</h1>
+  <div class="actions">
+    <a class="button" href="/sites/{{.Site.ID}}/edit">Editar</a>
+    <form method="post" action="/sites/{{.Site.ID}}/deploy" class="inline">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <button type="submit" class="primary">Deploy</button>
+    </form>
+  </div>
+</div>
+{{with .DockerError}}<div class="flash error">No se pudo conectar con Docker: {{.}}</div>{{end}}
+
+<div class="grid">
+  <section class="card">
+    <h2>Configuración</h2>
+    <dl class="props">
+      <dt>Repositorio</dt><dd><code>{{.Site.RepoURL}}</code> ({{.Site.Branch}})</dd>
+      <dt>Tipo</dt><dd>{{.Site.Kind}}{{if eq .Site.Kind "php"}} · PHP {{.Site.PHPVersion}}{{with .Site.PHPExtensions}} · ext: {{.}}{{end}}{{end}}</dd>
+      <dt>Dominios</dt><dd>{{range .Site.Domains}}<a href="https://{{.}}" target="_blank" rel="noopener">{{.}}</a><br>{{else}}<span class="muted">sin dominio (no es accesible desde internet)</span>{{end}}</dd>
+      <dt>Recursos</dt><dd>{{if .Site.MemoryMB}}{{.Site.MemoryMB}} MB{{else}}RAM sin límite{{end}} · {{if .Site.CPUs}}{{.Site.CPUs}} CPU{{else}}CPU sin límite{{end}}</dd>
+      {{with .Container}}<dt>Contenedor</dt><dd><code>{{index .Names 0}}</code> · {{.Status}}</dd>{{end}}
+    </dl>
+  </section>
+
+  {{if .Site.UsesSSH}}
+  <section class="card">
+    <h2>Deploy key</h2>
+    <p class="muted small">Repositorio privado: agrega esta llave en GitHub → tu repo → <em>Settings → Deploy keys → Add deploy key</em>
+      (deja desmarcado "Allow write access").</p>
+    <textarea class="mono" rows="3" readonly>{{.Site.DeployKeyPub}}</textarea>
+  </section>
+  {{end}}
+</div>
+
+{{if .Container}}
+<section class="card">
+  <div class="row">
+    <h2>Contenedor</h2>
+    <div class="actions">
+      <form method="post" action="/sites/{{.Site.ID}}/control/restart" class="inline"><input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit">Reiniciar</button></form>
+      {{if eq .Container.State "running"}}
+      <form method="post" action="/sites/{{.Site.ID}}/control/stop" class="inline"><input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit">Detener</button></form>
+      {{else}}
+      <form method="post" action="/sites/{{.Site.ID}}/control/start" class="inline"><input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit">Iniciar</button></form>
+      {{end}}
+    </div>
+  </div>
+  <div id="container-logs">
+    <button type="button" hx-get="/sites/{{.Site.ID}}/logs" hx-target="#container-logs" hx-swap="outerHTML">Ver logs</button>
+  </div>
+</section>
+{{end}}
+
+<section class="card">
+  <h2>Deploys</h2>
+  {{if .Deployments}}
+  <table class="table">
+    <thead><tr><th>#</th><th>Estado</th><th>Commit</th><th>Inicio</th><th>Duración</th></tr></thead>
+    <tbody>
+    {{range .Deployments}}
+      <tr>
+        <td><a href="/deployments/{{.ID}}">#{{.ID}}</a></td>
+        <td>{{template "deploy_status" .Status}}</td>
+        <td>{{with .CommitSHA}}<code>{{.}}</code>{{else}}<span class="muted">—</span>{{end}}</td>
+        <td>{{ago .StartedAt}}</td>
+        <td>{{.Duration}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">Aún no hay deploys.</p>
+  {{end}}
+</section>
+
+<section class="card danger">
+  <h2>Eliminar sitio</h2>
+  <p class="muted small">Elimina el contenedor, las imágenes y la configuración. No se puede deshacer.</p>
+  <form method="post" action="/sites/{{.Site.ID}}/delete" class="inline-form">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input name="confirm" placeholder="Escribe {{.Site.Name}} para confirmar" required autocomplete="off">
+    <button type="submit" class="danger">Eliminar</button>
+  </form>
+</section>
+{{end}}

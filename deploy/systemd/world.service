@@ -1,0 +1,15 @@
+[Unit]
+Description=world - panel de sitios Docker
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+EnvironmentFile=/etc/world/world.env
+ExecStart=/usr/local/bin/world serve
+Restart=always
+RestartSec=3
+# El panel administra Docker, por eso corre como root (acceso al socket de Docker = root).
+User=root
+
+[Install]
+WantedBy=multi-user.target

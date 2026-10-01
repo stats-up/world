@@ -1,0 +1,9 @@
+{{define "container_logs"}}
+<div id="container-logs">
+  <div class="row">
+    <span class="muted small">Últimas 300 líneas</span>
+    <button type="button" hx-get="/sites/{{.SiteID}}/logs" hx-target="#container-logs" hx-swap="outerHTML">Actualizar</button>
+  </div>
+  <pre class="log">{{if .Logs}}{{.Logs}}{{else}}(sin logs){{end}}</pre>
+</div>
+{{end}}

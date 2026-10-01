@@ -1,0 +1,79 @@
+{{define "title"}}{{if .New}}Nuevo sitio{{else}}Editar {{.Site.Name}}{{end}}{{end}}
+{{define "content"}}
+<p class="crumbs"><a href="/">Sitios</a> / {{if .New}}Nuevo{{else}}<a href="/sites/{{.Site.ID}}">{{.Site.Name}}</a> / Editar{{end}}</p>
+<h1>{{if .New}}Nuevo sitio{{else}}Editar {{.Site.Name}}{{end}}</h1>
+
+{{if .Errors}}<div class="flash error"><ul>{{range .Errors}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+
+<form method="post" action="{{if .New}}/sites{{else}}/sites/{{.Site.ID}}{{end}}" class="card stack">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+
+  <fieldset>
+    <legend>General</legend>
+    <label>Nombre
+      {{if .New}}<input name="name" value="{{.Site.Name}}" required pattern="[a-z0-9]([a-z0-9\-]{0,30}[a-z0-9])?" placeholder="mi-sitio">
+      <small>Minúsculas, números y guiones. No se puede cambiar después.</small>
+      {{else}}<input value="{{.Site.Name}}" disabled>{{end}}
+    </label>
+    <label>Repositorio
+      <input name="repo_url" value="{{.Site.RepoURL}}" required placeholder="git@github.com:empresa/repo.git">
+      <small>Privado: <code>git@github.com:usuario/repo.git</code> (se genera una deploy key). Público: <code>https://github.com/usuario/repo.git</code></small>
+    </label>
+    <label>Rama <input name="branch" value="{{.Site.Branch}}" required></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Dominios</legend>
+    <label>Uno por línea (dominio principal, alias y subdominios)
+      <textarea name="domains" rows="3" placeholder="miempresa.cl&#10;www.miempresa.cl&#10;api.miempresa.cl">{{join .Site.Domains "\n"}}</textarea>
+      <small>Cada dominio debe tener un registro DNS tipo A apuntando a la IP de este servidor. El certificado SSL se emite solo.</small>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Tipo de aplicación</legend>
+    <label>Tipo
+      <select name="kind">
+        {{range .Kinds}}<option value="{{.Value}}"{{if eq .Value $.Site.Kind}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </label>
+    <div class="cols">
+      <label>Versión de PHP
+        <select name="php_version">
+          {{range .PHPVersions}}<option{{if eq . $.Site.PHPVersion}} selected{{end}}>{{.}}</option>{{end}}
+        </select>
+      </label>
+      <label>Extensiones PHP adicionales
+        <input name="php_extensions" value="{{.Site.PHPExtensions}}" placeholder="intl gd imagick">
+        <small>La imagen base ya trae: pdo_mysql, mbstring, curl, zip, opcache, redis, pcntl, entre otras.</small>
+      </label>
+    </div>
+    <label class="check"><input type="checkbox" name="build_assets" value="1"{{if .Site.BuildAssets}} checked{{end}}> Compilar assets con <code>npm run build</code> (si hay package.json)</label>
+    <label class="check"><input type="checkbox" name="autorun" value="1"{{if .Site.Autorun}} checked{{end}}> Laravel: ejecutar migraciones y cachés al iniciar (<code>migrate --force</code>, <code>optimize</code>)</label>
+    <label>Puerto interno <small>(solo para tipo "Dockerfile propio")</small>
+      <input name="port" type="number" min="1" max="65535" value="{{.Site.Port}}">
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Variables de ambiente</legend>
+    <label>Formato .env
+      <textarea name="env" rows="12" class="mono" spellcheck="false" placeholder="APP_ENV=production&#10;APP_KEY=base64:...&#10;APP_URL=https://miempresa.cl&#10;DB_HOST=...">{{.Env}}</textarea>
+      <small>Se guardan cifradas. Se aplican en el próximo deploy.</small>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Recursos</legend>
+    <div class="cols">
+      <label>Límite de RAM (MB) <input name="memory_mb" type="number" min="0" step="64" value="{{.Site.MemoryMB}}"><small>0 = sin límite</small></label>
+      <label>Límite de CPU <input name="cpus" type="number" min="0" step="0.25" value="{{.Site.CPUs}}"><small>Ej: 0.5 = media CPU. 0 = sin límite</small></label>
+    </div>
+  </fieldset>
+
+  <div class="actions">
+    <button type="submit" class="primary">{{if .New}}Crear sitio{{else}}Guardar cambios{{end}}</button>
+    <a class="button" href="{{if .New}}/{{else}}/sites/{{.Site.ID}}{{end}}">Cancelar</a>
+  </div>
+</form>
+{{end}}

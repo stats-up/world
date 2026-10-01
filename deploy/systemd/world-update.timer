@@ -1,0 +1,11 @@
+[Unit]
+Description=world - revisa actualizaciones cada 10 minutos
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target

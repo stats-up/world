@@ -1,0 +1,4 @@
+# Los scripts se ejecutan en Linux: siempre con fin de línea LF.
+*.sh text eol=lf
+*.service text eol=lf
+*.timer text eol=lf

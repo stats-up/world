@@ -1,0 +1,12 @@
+{{define "title"}}Ingresar{{end}}
+{{define "content"}}
+<div class="card">
+  <h1>world</h1>
+  {{with .Error}}<div class="flash error">{{.}}</div>{{end}}
+  <form method="post" action="/login" class="stack">
+    <label>Email <input type="email" name="email" value="{{.Email}}" required autofocus autocomplete="username"></label>
+    <label>Contraseña <input type="password" name="password" required autocomplete="current-password"></label>
+    <button type="submit" class="primary">Ingresar</button>
+  </form>
+</div>
+{{end}}

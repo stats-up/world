@@ -1,0 +1,8 @@
+[Unit]
+Description=world - auto-update desde git
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash @REPO_DIR@/scripts/update.sh

@@ -1,0 +1,5 @@
+{{define "status"}}{{if eq . "running"}}<span class="badge ok">activo</span>{{else if eq . "restarting"}}<span class="badge warn">reiniciando</span>{{else if eq . "exited"}}<span class="badge err">detenido</span>{{else if eq . "no instalado"}}<span class="badge muted">no instalado</span>{{else}}<span class="badge muted">{{.}}</span>{{end}}{{end}}
+
+{{define "site_state"}}{{if .State}}{{template "status" .State}} <span class="muted small">{{.Status}}</span>{{else}}<span class="badge muted">sin desplegar</span>{{end}}{{end}}
+
+{{define "deploy_status"}}{{if eq . "running"}}<span class="badge warn">en curso</span>{{else if eq . "success"}}<span class="badge ok">exitoso</span>{{else}}<span class="badge err">fallido</span>{{end}}{{end}}

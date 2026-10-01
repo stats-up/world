@@ -1,0 +1,49 @@
+{{define "title"}}Perfil{{end}}
+{{define "content"}}
+<h1>Perfil</h1>
+<p class="muted">{{.User.Email}}</p>
+
+<div class="grid">
+  <section class="card">
+    <h2>Cambiar contraseña</h2>
+    {{with .PwError}}<div class="flash error">{{.}}</div>{{end}}
+    <form method="post" action="/profile/password" class="stack">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label>Contraseña actual <input type="password" name="current" required autocomplete="current-password"></label>
+      <label>Nueva contraseña <input type="password" name="password" minlength="10" required autocomplete="new-password"></label>
+      <label>Repetir nueva contraseña <input type="password" name="password_confirm" minlength="10" required autocomplete="new-password"></label>
+      <button type="submit">Actualizar</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Verificación en dos pasos (2FA)</h2>
+    {{with .MFAError}}<div class="flash error">{{.}}</div>{{end}}
+    {{if .User.TOTPEnabled}}
+      <p><span class="badge ok">activado</span></p>
+      <form method="post" action="/profile/2fa/disable" class="stack">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <label>Contraseña <input type="password" name="password" required autocomplete="current-password"></label>
+        <label>Código actual <input name="code" inputmode="numeric" maxlength="7" required autocomplete="one-time-code"></label>
+        <button type="submit" class="danger">Desactivar 2FA</button>
+      </form>
+    {{else if .MFASetup}}
+      <p class="small">1. Escanea el código con Google Authenticator, Authy, 1Password u otra app TOTP.</p>
+      {{with .MFAQR}}<img class="qr" src="{{.}}" alt="Código QR para 2FA" width="220" height="220">{{end}}
+      <p class="small">¿No puedes escanear? Ingresa esta clave a mano: <code>{{.MFASecret}}</code></p>
+      <p class="small">2. Ingresa el código de 6 dígitos que muestra la app:</p>
+      <form method="post" action="/profile/2fa/enable" class="stack">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <label>Código <input name="code" inputmode="numeric" maxlength="7" required autofocus autocomplete="one-time-code"></label>
+        <button type="submit" class="primary">Activar 2FA</button>
+      </form>
+    {{else}}
+      <p class="muted small">Protege el panel con un código temporal además de la contraseña. Muy recomendado: quien entra al panel controla el servidor.</p>
+      <form method="post" action="/profile/2fa/start">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <button type="submit" class="primary">Configurar 2FA</button>
+      </form>
+    {{end}}
+  </section>
+</div>
+{{end}}

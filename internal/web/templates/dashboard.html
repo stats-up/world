@@ -1,0 +1,43 @@
+{{define "title"}}Sitios{{end}}
+{{define "content"}}
+{{if .DockerError}}
+<div class="flash error">No se pudo conectar con Docker: {{.DockerError}}</div>
+{{else}}
+<section class="stats">
+  <div class="stat"><span>Docker</span><strong>{{.Docker.ServerVersion}}</strong></div>
+  <div class="stat"><span>CPU</span><strong>{{.Docker.NCPU}} vCPU</strong></div>
+  <div class="stat"><span>RAM</span><strong>{{gb .Docker.MemTotal}}</strong></div>
+  <div class="stat"><span>Contenedores activos</span><strong>{{.Docker.ContainersRunning}}</strong></div>
+  <div class="stat"><span>Traefik</span><strong>{{template "status" .Traefik}}</strong></div>
+</section>
+{{end}}
+
+{{if not .PanelDomain}}
+<div class="flash info">El panel aún no tiene dominio y se está usando sin HTTPS. Configúralo en <a href="/settings">Ajustes</a>.</div>
+{{end}}
+
+<div class="row">
+  <h1>Sitios</h1>
+  <a class="button primary" href="/sites/new">+ Nuevo sitio</a>
+</div>
+
+{{if .Sites}}
+<table class="table">
+  <thead><tr><th>Nombre</th><th>Dominios</th><th>Tipo</th><th>Estado</th></tr></thead>
+  <tbody>
+  {{range .Sites}}
+    <tr>
+      <td><a href="/sites/{{.ID}}"><strong>{{.Name}}</strong></a></td>
+      <td>{{range .Domains}}<a href="https://{{.}}" target="_blank" rel="noopener">{{.}}</a><br>{{else}}<span class="muted">—</span>{{end}}</td>
+      <td>{{.Kind}}</td>
+      <td>{{if $.Containers}}{{template "site_state" (index $.Containers .Name)}}{{else}}<span class="muted">—</span>{{end}}</td>
+    </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}
+<div class="card empty">
+  <p>Todavía no hay sitios. Crea el primero desde un repositorio de GitHub.</p>
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,12 @@
+{{define "title"}}Verificación en dos pasos{{end}}
+{{define "content"}}
+<div class="card">
+  <h1>Verificación en dos pasos</h1>
+  <p class="muted">Ingresa el código de 6 dígitos de tu app de autenticación.</p>
+  {{with .Error}}<div class="flash error">{{.}}</div>{{end}}
+  <form method="post" action="/login/2fa" class="stack">
+    <label>Código <input name="code" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" required autofocus autocomplete="one-time-code"></label>
+    <button type="submit" class="primary">Verificar</button>
+  </form>
+</div>
+{{end}}

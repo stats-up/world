@@ -1,0 +1,6 @@
+{{define "title"}}Deploy #{{.Deployment.ID}}{{end}}
+{{define "content"}}
+<p class="crumbs"><a href="/">Sitios</a> / <a href="/sites/{{.Site.ID}}">{{.Site.Name}}</a> / Deploy #{{.Deployment.ID}}</p>
+<h1>Deploy #{{.Deployment.ID}} · {{.Site.Name}}</h1>
+{{template "deploy_log" .}}
+{{end}}
