@@ -20,6 +20,10 @@
       <dt>Repositorio</dt><dd><code>{{.Site.RepoURL}}</code> ({{.Site.Branch}})</dd>
       <dt>Tipo</dt><dd>{{.Site.Kind}}{{if eq .Site.Kind "php"}} · PHP {{.Site.PHPVersion}}{{with .Site.PHPExtensions}} · ext: {{.}}{{end}}{{end}}</dd>
       <dt>Dominios</dt><dd>{{range .Site.Domains}}<a href="https://{{.}}" target="_blank" rel="noopener">{{.}}</a><br>{{else}}<span class="muted">sin dominio (no es accesible desde internet)</span>{{end}}</dd>
+      <dt>Deploy automático</dt><dd>{{if .Site.AutoDeploy}}<span class="badge ok">activo</span>
+        {{if not .Site.LastCheckAt.IsZero}}<span class="muted small">revisado {{ago .Site.LastCheckAt}}{{with .Site.LastRemoteSHA}} · último commit <code>{{short .}}</code>{{end}}</span>{{else}}<span class="muted small">esperando el primer chequeo</span>{{end}}
+        {{with .Site.LastCheckError}}<div class="flash error small">{{.}}</div>{{end}}
+        {{else}}<span class="muted">desactivado (deploy manual)</span>{{end}}</dd>
       <dt>Recursos</dt><dd>{{if .Site.MemoryMB}}{{.Site.MemoryMB}} MB{{else}}RAM sin límite{{end}} · {{if .Site.CPUs}}{{.Site.CPUs}} CPU{{else}}CPU sin límite{{end}}</dd>
       {{with .Container}}<dt>Contenedor</dt><dd><code>{{index .Names 0}}</code> · {{.Status}}</dd>{{end}}
     </dl>
@@ -58,13 +62,14 @@
   <h2>Deploys</h2>
   {{if .Deployments}}
   <table class="table">
-    <thead><tr><th>#</th><th>Estado</th><th>Commit</th><th>Inicio</th><th>Duración</th></tr></thead>
+    <thead><tr><th>#</th><th>Estado</th><th>Commit</th><th>Origen</th><th>Inicio</th><th>Duración</th></tr></thead>
     <tbody>
     {{range .Deployments}}
       <tr>
         <td><a href="/deployments/{{.ID}}">#{{.ID}}</a></td>
         <td>{{template "deploy_status" .Status}}</td>
-        <td>{{with .CommitSHA}}<code>{{.}}</code>{{else}}<span class="muted">—</span>{{end}}</td>
+        <td>{{with .CommitSHA}}<code>{{short .}}</code>{{else}}<span class="muted">—</span>{{end}}</td>
+        <td>{{if eq .Source "auto"}}automático{{else}}manual{{end}}</td>
         <td>{{ago .StartedAt}}</td>
         <td>{{.Duration}}</td>
       </tr>

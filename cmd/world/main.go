@@ -92,7 +92,8 @@ func serve(cfg config.Config) error {
 	dc := docker.New(cfg.DockerSocket)
 	px := proxy.New(dc, cfg)
 	engine := deploy.New(cfg, st, dc, box)
-	srv, err := web.New(cfg, st, dc, box, engine, px, version)
+	poller := deploy.NewPoller(engine, st, time.Minute)
+	srv, err := web.New(cfg, st, dc, box, engine, poller, px, version)
 	if err != nil {
 		return err
 	}
@@ -100,6 +101,7 @@ func serve(cfg config.Config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	go poller.Run(ctx)
 	go px.EnsureLoop(ctx, func() (string, string) {
 		return st.Setting("acme_email"), st.Setting("panel_domain")
 	})

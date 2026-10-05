@@ -49,8 +49,8 @@ func (e *Engine) LogPath(deployID int64) string {
 	return e.cfg.Path("deployments", fmt.Sprintf("%d.log", deployID))
 }
 
-// Start lanza un deploy en segundo plano y devuelve su id.
-func (e *Engine) Start(siteID int64) (int64, error) {
+// Start lanza un deploy en segundo plano y devuelve su id. source: store.SourceManual o store.SourceAuto.
+func (e *Engine) Start(siteID int64, source string) (int64, error) {
 	e.mu.Lock()
 	if e.busy[siteID] {
 		e.mu.Unlock()
@@ -59,7 +59,7 @@ func (e *Engine) Start(siteID int64) (int64, error) {
 	e.busy[siteID] = true
 	e.mu.Unlock()
 
-	id, err := e.st.CreateDeployment(siteID)
+	id, err := e.st.CreateDeployment(siteID, source)
 	if err != nil {
 		e.release(siteID)
 		return 0, err
@@ -114,14 +114,9 @@ func (e *Engine) deploy(ctx context.Context, lg *logger, deployID, siteID int64)
 	defer os.RemoveAll(work)
 
 	lg.Step(fmt.Sprintf("Clonando %s (rama %s)", site.RepoURL, site.Branch))
-	gitEnv := []string{"GIT_TERMINAL_PROMPT=0"}
-	if site.UsesSSH() {
-		keyPath, err := e.writeDeployKey(site)
-		if err != nil {
-			return "", err
-		}
-		gitEnv = append(gitEnv, "GIT_SSH_COMMAND=ssh -i "+shellQuote(keyPath)+
-			" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="+shellQuote(e.cfg.Path("known_hosts")))
+	gitEnv, err := e.gitEnv(site)
+	if err != nil {
+		return "", err
 	}
 	if err := e.exec(ctx, lg, "", gitEnv, "git", "clone", "--depth", "1", "--single-branch",
 		"--branch", site.Branch, site.RepoURL, work); err != nil {
@@ -131,7 +126,7 @@ func (e *Engine) deploy(ctx context.Context, lg *logger, deployID, siteID int64)
 		}
 		return "", fmt.Errorf("git clone falló%s: %w", hint, err)
 	}
-	out, _ := exec.CommandContext(ctx, "git", "-C", work, "rev-parse", "--short=12", "HEAD").Output()
+	out, _ := exec.CommandContext(ctx, "git", "-C", work, "rev-parse", "HEAD").Output()
 	sha := strings.TrimSpace(string(out))
 	lg.Printf("Commit: %s", sha)
 
@@ -324,6 +319,43 @@ func (e *Engine) writeDeployKey(site *store.Site) (string, error) {
 	}
 	path := filepath.Join(dir, "deploy_key")
 	return path, os.WriteFile(path, key, 0o600)
+}
+
+// gitEnv arma el entorno de git para el sitio: sin prompts y, si el repo es privado, con su deploy key.
+func (e *Engine) gitEnv(site *store.Site) ([]string, error) {
+	env := []string{"GIT_TERMINAL_PROMPT=0"}
+	if !site.UsesSSH() {
+		return env, nil
+	}
+	keyPath, err := e.writeDeployKey(site)
+	if err != nil {
+		return nil, err
+	}
+	return append(env, "GIT_SSH_COMMAND=ssh -i "+shellQuote(keyPath)+
+		" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="+shellQuote(e.cfg.Path("known_hosts"))), nil
+}
+
+// RemoteHead consulta el último commit de la rama del sitio sin descargar el repo (git ls-remote).
+func (e *Engine) RemoteHead(ctx context.Context, site *store.Site) (string, error) {
+	env, err := e.gitEnv(site)
+	if err != nil {
+		return "", err
+	}
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", site.RepoURL, "refs/heads/"+site.Branch)
+	cmd.Env = append(os.Environ(), env...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if len(msg) > 300 {
+			msg = msg[len(msg)-300:]
+		}
+		return "", fmt.Errorf("git ls-remote: %v: %s", err, msg)
+	}
+	sha, _, _ := strings.Cut(strings.TrimSpace(string(out)), "\t")
+	if len(sha) < 40 {
+		return "", fmt.Errorf("la rama %q no existe en el repositorio", site.Branch)
+	}
+	return sha, nil
 }
 
 // shellQuote: GIT_SSH_COMMAND lo interpreta una shell, así que las rutas van entre comillas simples.

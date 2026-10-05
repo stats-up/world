@@ -31,6 +31,12 @@ type Site struct {
 	CPUs          float64
 	CurrentImage  string
 	CreatedAt     time.Time
+
+	// Auto-deploy: world consulta la rama cada minuto y despliega si hay un commit nuevo.
+	AutoDeploy     bool
+	LastCheckAt    time.Time
+	LastRemoteSHA  string
+	LastCheckError string
 }
 
 // UsesSSH indica si el repo se clona por SSH (privado, con deploy key).
@@ -51,23 +57,29 @@ func (s *Site) InternalPort() int {
 }
 
 const siteCols = `id, name, repo_url, branch, kind, php_version, php_extensions, build_assets, autorun, port,
-	domains, env_enc, deploy_key_pub, deploy_key_enc, memory_mb, cpus, current_image, created_at`
+	domains, env_enc, deploy_key_pub, deploy_key_enc, memory_mb, cpus, current_image, created_at,
+	auto_deploy, last_check_at, last_remote_sha, last_check_error`
 
 func scanSite(row interface{ Scan(...any) error }) (*Site, error) {
 	var s Site
-	var assets, autorun int
+	var assets, autorun, auto int
 	var domains string
-	var created int64
+	var created, checked int64
 	err := row.Scan(&s.ID, &s.Name, &s.RepoURL, &s.Branch, &s.Kind, &s.PHPVersion, &s.PHPExtensions,
 		&assets, &autorun, &s.Port, &domains, &s.EnvEnc, &s.DeployKeyPub, &s.DeployKeyEnc,
-		&s.MemoryMB, &s.CPUs, &s.CurrentImage, &created)
+		&s.MemoryMB, &s.CPUs, &s.CurrentImage, &created,
+		&auto, &checked, &s.LastRemoteSHA, &s.LastCheckError)
 	if err != nil {
 		return nil, notFound(err)
 	}
 	s.BuildAssets = assets == 1
 	s.Autorun = autorun == 1
+	s.AutoDeploy = auto == 1
 	s.Domains = SplitLines(domains)
 	s.CreatedAt = time.Unix(created, 0)
+	if checked > 0 {
+		s.LastCheckAt = time.Unix(checked, 0)
+	}
 	return &s, nil
 }
 
@@ -94,11 +106,12 @@ func (s *Store) Site(id int64) (*Site, error) {
 
 func (s *Store) CreateSite(site *Site) (int64, error) {
 	res, err := s.db.Exec(`INSERT INTO sites (name, repo_url, branch, kind, php_version, php_extensions,
-		build_assets, autorun, port, domains, env_enc, deploy_key_pub, deploy_key_enc, memory_mb, cpus, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		build_assets, autorun, port, domains, env_enc, deploy_key_pub, deploy_key_enc, memory_mb, cpus, created_at, auto_deploy)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		site.Name, site.RepoURL, site.Branch, site.Kind, site.PHPVersion, site.PHPExtensions,
 		boolInt(site.BuildAssets), boolInt(site.Autorun), site.Port, strings.Join(site.Domains, "\n"),
-		site.EnvEnc, site.DeployKeyPub, site.DeployKeyEnc, site.MemoryMB, site.CPUs, time.Now().Unix())
+		site.EnvEnc, site.DeployKeyPub, site.DeployKeyEnc, site.MemoryMB, site.CPUs, time.Now().Unix(),
+		boolInt(site.AutoDeploy))
 	if err != nil {
 		return 0, err
 	}
@@ -108,15 +121,23 @@ func (s *Store) CreateSite(site *Site) (int64, error) {
 // UpdateSite guarda los campos editables (el nombre y la deploy key no cambian).
 func (s *Store) UpdateSite(site *Site) error {
 	_, err := s.db.Exec(`UPDATE sites SET repo_url = ?, branch = ?, kind = ?, php_version = ?, php_extensions = ?,
-		build_assets = ?, autorun = ?, port = ?, domains = ?, env_enc = ?, memory_mb = ?, cpus = ? WHERE id = ?`,
+		build_assets = ?, autorun = ?, port = ?, domains = ?, env_enc = ?, memory_mb = ?, cpus = ?, auto_deploy = ?
+		WHERE id = ?`,
 		site.RepoURL, site.Branch, site.Kind, site.PHPVersion, site.PHPExtensions,
 		boolInt(site.BuildAssets), boolInt(site.Autorun), site.Port, strings.Join(site.Domains, "\n"),
-		site.EnvEnc, site.MemoryMB, site.CPUs, site.ID)
+		site.EnvEnc, site.MemoryMB, site.CPUs, boolInt(site.AutoDeploy), site.ID)
 	return err
 }
 
 func (s *Store) SetSiteImage(id int64, image string) error {
 	_, err := s.db.Exec(`UPDATE sites SET current_image = ? WHERE id = ?`, image, id)
+	return err
+}
+
+// SetSiteCheck guarda el resultado de la última consulta a la rama remota.
+func (s *Store) SetSiteCheck(id int64, at time.Time, sha, errMsg string) error {
+	_, err := s.db.Exec(`UPDATE sites SET last_check_at = ?, last_remote_sha = ?, last_check_error = ? WHERE id = ?`,
+		at.Unix(), sha, errMsg, id)
 	return err
 }
 

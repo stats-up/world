@@ -1,10 +1,10 @@
 [Unit]
-Description=world - revisa actualizaciones cada 10 minutos
+Description=world - revisa actualizaciones cada minuto
 
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=10min
-RandomizedDelaySec=60
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=5s
 Persistent=true
 
 [Install]

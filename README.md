@@ -8,7 +8,8 @@ de ambiente cifradas, todo desde una interfaz web.
 - **Sitios PHP/Laravel, estáticos o con Dockerfile propio.**
 - **Repositorios privados de GitHub** mediante deploy keys generadas por el panel.
 - **SSL automático** con Traefik y Let's Encrypt.
-- **Se actualiza solo:** revisa este repositorio cada 10 minutos y, si hay cambios, se recompila y se reinicia. Si algo falla, vuelve a la versión anterior.
+- **Se actualiza solo:** revisa este repositorio cada minuto y, si hay cambios, se recompila y se reinicia. Si algo falla, vuelve a la versión anterior.
+- **Deploy automático de los sitios:** revisa la rama de cada sitio cada minuto y despliega solo cuando hay commits nuevos.
 
 ```
 Internet ──► Traefik (:80/:443, SSL automático)
@@ -110,7 +111,7 @@ Si el contenedor nuevo falla, el sitio sigue funcionando con la versión anterio
 
 ## Actualizaciones automáticas
 
-El servidor revisa este repositorio cada 10 minutos (`world-update.timer`). Si hay commits nuevos en la rama configurada:
+El servidor revisa este repositorio cada minuto (`world-update.timer`). Si hay commits nuevos en la rama configurada:
 
 1. Descarga los cambios y recompila.
 2. Reemplaza el binario y reinicia el panel.
@@ -131,6 +132,26 @@ Para ver el historial de actualizaciones:
 ```bash
 sudo journalctl -u world-update -n 50
 ```
+
+## Deploy automático de los sitios
+
+En cada sitio puedes activar **"Deploy automático"**. Con eso, el panel consulta la rama cada minuto con `git ls-remote`, que solo pregunta por el último commit sin descargar el repositorio. Si hay un commit nuevo, hace el deploy solo. Así, publicar un cambio es simplemente hacer `git push`.
+
+- Un commit cuyo deploy **falló no se reintenta** en bucle: el sitio sigue con la versión anterior hasta el siguiente commit, o hasta que presiones Deploy.
+- Si el deploy falla antes de clonar (por ejemplo, porque falta la deploy key), se reintenta como máximo cada 10 minutos.
+- En la tabla de deploys del sitio, la columna **Origen** indica si fue manual o automático.
+
+## Monitoreo: `/health`
+
+El panel expone `https://tu-panel/health` (sin login) con el estado de los dos procesos periódicos:
+
+```json
+{"version":"9557927","ok":true,
+ "auto_deploy":{"seconds_ago":12,"ok":true},
+ "self_update":{"seconds_ago":40,"ok":true}}
+```
+
+Responde **HTTP 503** si alguno lleva varios minutos sin correr. Puedes apuntar un monitor externo gratuito (por ejemplo UptimeRobot) a esa URL para que te avise. El mismo estado aparece en el dashboard del panel.
 
 ## Comandos útiles
 
@@ -180,7 +201,8 @@ sudo rm -rf /etc/systemd/system/world*.service /etc/systemd/system/world-update.
 ## Hoja de ruta
 
 - [x] **Fase 1:** instalador, auto-update, login con 2FA, sitios desde GitHub, dominios y subdominios con SSL, variables de ambiente, límites de RAM/CPU y logs
-- [ ] **Fase 2:** webhook de GitHub (deploy automático al hacer push), rollback, workers de colas y scheduler de Laravel, archivos de llaves y assets compartidos
+- [x] **Deploy automático por sitio** (revisión de la rama cada minuto) y endpoint `/health`
+- [ ] **Fase 2:** volúmenes persistentes, comandos de release (migraciones, seeders), rollback, workers de colas y scheduler de Laravel, archivos de llaves y assets compartidos
 - [ ] **Dominios y correo:** DNS mediante API (registros automáticos al agregar dominios, certificados wildcard) y envío con Amazon SES (verificación de dominio, DKIM, SPF y DMARC automáticos, y credenciales `MAIL_*` para los sitios)
 - [ ] **Fase 3:** crons HTTP hacia APIs con historial, y bases de datos y usuarios en MySQL/MariaDB (RDS) desde el panel
 - [ ] **Fase 4:** monitoreo de recursos, registro de caídas con diagnóstico, alertas (email/Telegram) y recomendaciones de recursos

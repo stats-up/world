@@ -45,7 +45,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	d := data{"Sites": sites, "PanelDomain": s.st.Setting("panel_domain")}
+	d := data{"Sites": sites, "PanelDomain": s.st.Setting("panel_domain"), "Health": s.healthStatus()}
 	if info, err := s.dc.Info(ctx); err == nil {
 		d["Docker"] = info
 		cs, _ := s.engine.Containers(ctx)
@@ -147,6 +147,7 @@ func (s *Server) readSiteForm(r *http.Request, site *store.Site) (string, []stri
 	site.PHPVersion = r.FormValue("php_version")
 	site.BuildAssets = r.FormValue("build_assets") == "1"
 	site.Autorun = r.FormValue("autorun") == "1"
+	site.AutoDeploy = r.FormValue("auto_deploy") == "1"
 	env := strings.ReplaceAll(r.FormValue("env"), "\r\n", "\n")
 
 	if !validRepoURL(site.RepoURL) {
@@ -293,7 +294,7 @@ func (s *Server) siteDeploy(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	id, err := s.engine.Start(site.ID)
+	id, err := s.engine.Start(site.ID, store.SourceManual)
 	if err != nil {
 		s.setFlash(w, "error", err.Error())
 		redirect(w, r, fmt.Sprintf("/sites/%d", site.ID))

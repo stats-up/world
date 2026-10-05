@@ -26,6 +26,8 @@ main() {
   # Sin esto, si el repo no es accesible git se queda esperando un usuario/contraseña.
   export GIT_TERMINAL_PROMPT=0
   git fetch --quiet origin "$branch"
+  # Marca de vida: el panel la muestra como "auto-update activo" (y /health responde 503 si se detiene).
+  date +%s > "${WORLD_DATA_DIR:-/var/lib/world}/update-heartbeat"
   local current remote
   current="$(git rev-parse HEAD)"
   remote="$(git rev-parse "origin/$branch")"

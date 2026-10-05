@@ -20,6 +20,7 @@
       <small>Privado: <code>git@github.com:usuario/repo.git</code> (se genera una deploy key). Público: <code>https://github.com/usuario/repo.git</code></small>
     </label>
     <label>Rama <input name="branch" value="{{.Site.Branch}}" required></label>
+    <label class="check"><input type="checkbox" name="auto_deploy" value="1"{{if .Site.AutoDeploy}} checked{{end}}> Deploy automático: revisar la rama cada minuto y desplegar cuando haya commits nuevos</label>
   </fieldset>
 
   <fieldset>

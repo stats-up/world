@@ -85,6 +85,13 @@ var migrations = []string{
 		finished_at INTEGER NOT NULL DEFAULT 0
 	);
 	CREATE INDEX deployments_site ON deployments(site_id, id DESC);`,
+
+	// 2: auto-deploy (world revisa la rama cada minuto y despliega si hay commits nuevos)
+	`ALTER TABLE sites ADD COLUMN auto_deploy INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE sites ADD COLUMN last_check_at INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE sites ADD COLUMN last_remote_sha TEXT NOT NULL DEFAULT '';
+	ALTER TABLE sites ADD COLUMN last_check_error TEXT NOT NULL DEFAULT '';
+	ALTER TABLE deployments ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';`,
 }
 
 func (s *Store) migrate() error {

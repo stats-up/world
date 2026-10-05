@@ -41,6 +41,7 @@ type Server struct {
 	dc      *docker.Client
 	box     *secret.Box
 	engine  *deploy.Engine
+	poller  *deploy.Poller
 	proxy   *proxy.Manager
 	version string
 
@@ -49,8 +50,8 @@ type Server struct {
 	limiter  *limiter
 }
 
-func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, px *proxy.Manager, version string) (*Server, error) {
-	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, proxy: px, version: version,
+func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, poller *deploy.Poller, px *proxy.Manager, version string) (*Server, error) {
+	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, poller: poller, proxy: px, version: version,
 		pages: map[string]*template.Template{}, limiter: newLimiter(10, 15*time.Minute)}
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
@@ -109,6 +110,7 @@ func (s *Server) Handler() http.Handler {
 	static, _ := fs.Sub(assets, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(static))))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok " + s.version)) })
+	mux.HandleFunc("GET /health", s.health)
 
 	mux.HandleFunc("GET /setup", s.setupForm)
 	mux.HandleFunc("POST /setup", s.setupSubmit)

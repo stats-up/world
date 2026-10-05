@@ -1,6 +1,15 @@
 package store
 
-import "time"
+import (
+	"strings"
+	"time"
+)
+
+// Origen de un deploy.
+const (
+	SourceManual = "manual"
+	SourceAuto   = "auto"
+)
 
 const (
 	DeployRunning = "running"
@@ -14,6 +23,7 @@ type Deployment struct {
 	Status     string
 	CommitSHA  string
 	Error      string
+	Source     string // manual | auto
 	StartedAt  time.Time
 	FinishedAt time.Time // cero mientras corre
 }
@@ -28,12 +38,20 @@ func (d *Deployment) Duration() time.Duration {
 	return end.Sub(d.StartedAt).Round(time.Second)
 }
 
-const deployCols = `id, site_id, status, commit_sha, error, started_at, finished_at`
+// IsCommit indica si el deploy corresponde al commit dado (acepta SHA completo o abreviado).
+func (d *Deployment) IsCommit(sha string) bool {
+	if d.CommitSHA == "" || sha == "" {
+		return false
+	}
+	return strings.HasPrefix(sha, d.CommitSHA) || strings.HasPrefix(d.CommitSHA, sha)
+}
+
+const deployCols = `id, site_id, status, commit_sha, error, source, started_at, finished_at`
 
 func scanDeployment(row interface{ Scan(...any) error }) (*Deployment, error) {
 	var d Deployment
 	var started, finished int64
-	if err := row.Scan(&d.ID, &d.SiteID, &d.Status, &d.CommitSHA, &d.Error, &started, &finished); err != nil {
+	if err := row.Scan(&d.ID, &d.SiteID, &d.Status, &d.CommitSHA, &d.Error, &d.Source, &started, &finished); err != nil {
 		return nil, notFound(err)
 	}
 	d.StartedAt = time.Unix(started, 0)
@@ -43,9 +61,9 @@ func scanDeployment(row interface{ Scan(...any) error }) (*Deployment, error) {
 	return &d, nil
 }
 
-func (s *Store) CreateDeployment(siteID int64) (int64, error) {
-	res, err := s.db.Exec(`INSERT INTO deployments (site_id, status, started_at) VALUES (?, ?, ?)`,
-		siteID, DeployRunning, time.Now().Unix())
+func (s *Store) CreateDeployment(siteID int64, source string) (int64, error) {
+	res, err := s.db.Exec(`INSERT INTO deployments (site_id, status, source, started_at) VALUES (?, ?, ?, ?)`,
+		siteID, DeployRunning, source, time.Now().Unix())
 	if err != nil {
 		return 0, err
 	}
@@ -60,6 +78,11 @@ func (s *Store) FinishDeployment(id int64, status, commit, errMsg string) error 
 
 func (s *Store) Deployment(id int64) (*Deployment, error) {
 	return scanDeployment(s.db.QueryRow(`SELECT `+deployCols+` FROM deployments WHERE id = ?`, id))
+}
+
+// LatestDeployment devuelve el último deploy del sitio (ErrNotFound si nunca se desplegó).
+func (s *Store) LatestDeployment(siteID int64) (*Deployment, error) {
+	return scanDeployment(s.db.QueryRow(`SELECT `+deployCols+` FROM deployments WHERE site_id = ? ORDER BY id DESC LIMIT 1`, siteID))
 }
 
 func (s *Store) Deployments(siteID int64, limit int) ([]*Deployment, error) {
