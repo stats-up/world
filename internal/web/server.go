@@ -42,6 +42,7 @@ type Server struct {
 	box     *secret.Box
 	engine  *deploy.Engine
 	poller  *deploy.Poller
+	cron    *deploy.Cron
 	proxy   *proxy.Manager
 	version string
 
@@ -50,8 +51,8 @@ type Server struct {
 	limiter  *limiter
 }
 
-func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, poller *deploy.Poller, px *proxy.Manager, version string) (*Server, error) {
-	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, poller: poller, proxy: px, version: version,
+func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, poller *deploy.Poller, cron *deploy.Cron, px *proxy.Manager, version string) (*Server, error) {
+	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, poller: poller, cron: cron, proxy: px, version: version,
 		pages: map[string]*template.Template{}, limiter: newLimiter(10, 15*time.Minute)}
 	if err := s.parseTemplates(); err != nil {
 		return nil, err

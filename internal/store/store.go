@@ -92,6 +92,15 @@ var migrations = []string{
 	ALTER TABLE sites ADD COLUMN last_remote_sha TEXT NOT NULL DEFAULT '';
 	ALTER TABLE sites ADD COLUMN last_check_error TEXT NOT NULL DEFAULT '';
 	ALTER TABLE deployments ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';`,
+
+	// 3: carpetas persistentes, cron por sitio (ej: schedule:run) y redirección de alias al dominio principal
+	`ALTER TABLE sites ADD COLUMN persist_paths TEXT NOT NULL DEFAULT '';
+	ALTER TABLE sites ADD COLUMN cron_command TEXT NOT NULL DEFAULT '';
+	ALTER TABLE sites ADD COLUMN redirect_aliases INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE sites ADD COLUMN last_cron_at INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE sites ADD COLUMN last_cron_exit INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE sites ADD COLUMN last_cron_ms INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE sites ADD COLUMN last_cron_output TEXT NOT NULL DEFAULT '';`,
 }
 
 func (s *Store) migrate() error {

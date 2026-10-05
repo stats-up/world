@@ -5,6 +5,8 @@
 //
 //	go test -c -tags integration -o deploy-it ./internal/deploy
 //	sudo WORLD_IT_DOMAIN=ittest.1-2-3-4.sslip.io WORLD_IT_BRANCH=12.x ./deploy-it -test.v -test.timeout 30m
+//
+// También prueba: carpeta persistente entre deploys, cron dentro del contenedor y redirección de alias.
 package deploy
 
 import (
@@ -55,8 +57,11 @@ func TestIntegrationDeployLaravel(t *testing.T) {
 		"SESSION_DRIVER=file",
 		"CACHE_STORE=file",
 	}, "\n")
-	site := &store.Site{Name: "ittest", RepoURL: repo, Branch: branch, Kind: store.KindPHP, PHPVersion: "8.4",
-		BuildAssets: true, Domains: []string{domain}, EnvEnc: box.SealString(env), MemoryMB: 384, CPUs: 1}
+	const storage = "/var/www/html/storage"
+	alias := "www." + domain
+	site := &store.Site{Name: itName, RepoURL: repo, Branch: branch, Kind: store.KindPHP, PHPVersion: "8.4",
+		BuildAssets: true, Domains: []string{domain, alias}, RedirectAliases: true, EnvEnc: box.SealString(env),
+		MemoryMB: 384, CPUs: 1, PersistPaths: []string{storage}, CronCommand: "php artisan schedule:run"}
 	id, err := st.CreateSite(site)
 	if err != nil {
 		t.Fatal(err)
@@ -68,6 +73,7 @@ func TestIntegrationDeployLaravel(t *testing.T) {
 	t.Cleanup(func() {
 		if os.Getenv("WORLD_IT_KEEP") == "" {
 			e.Remove(context.Background(), site)
+			dc.VolumeRemove(context.Background(), VolumeName(itName, storage))
 		}
 	})
 
@@ -77,7 +83,7 @@ func TestIntegrationDeployLaravel(t *testing.T) {
 		depID := runDeploy(t, e, st, id)
 		t.Logf("deploy %d (#%d) OK en %s", round, depID, time.Since(start).Round(time.Second))
 
-		cs, err := dc.ContainersByLabel(context.Background(), labelSite+"=ittest")
+		cs, err := dc.ContainersByLabel(context.Background(), labelSite+"="+itName)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -89,12 +95,75 @@ func TestIntegrationDeployLaravel(t *testing.T) {
 			t.Fatalf("la respuesta no parece Laravel:\n%.500s", body)
 		}
 		t.Logf("Traefik → contenedor OK (%d bytes)", len(body))
+
+		ctx := context.Background()
+		const marker = storage + "/app/world-it-persist.txt"
+		if round == 1 {
+			if out, code, err := dc.ContainerExec(ctx, cs[0].ID, []string{"sh", "-c", "echo persiste > " + marker}); err != nil || code != 0 {
+				t.Fatalf("no se pudo escribir en storage: code=%d err=%v %s", code, err, out)
+			}
+		} else {
+			out, code, err := dc.ContainerExec(ctx, cs[0].ID, []string{"cat", marker})
+			if err != nil || code != 0 || !strings.Contains(out, "persiste") {
+				t.Fatalf("el archivo de storage no sobrevivió al deploy: code=%d err=%v %q", code, err, out)
+			}
+			t.Log("carpeta persistente OK: el archivo sobrevivió al segundo deploy")
+		}
+	}
+
+	// Cron: schedule:run dentro del contenedor vigente.
+	site, _ = st.Site(id)
+	NewCron(e, st, time.Minute).runSite(context.Background(), site)
+	site, _ = st.Site(id)
+	if site.LastCronAt.IsZero() || site.LastCronExit != 0 {
+		t.Fatalf("cron falló: exit=%d salida=%q", site.LastCronExit, site.LastCronOutput)
+	}
+	t.Logf("cron OK en %d ms: %q", site.LastCronMS, strings.TrimSpace(site.LastCronOutput))
+
+	// Alias: debe responder 301 hacia el dominio principal conservando la ruta.
+	code, loc := headThroughTraefik(t, alias, "/precios?x=1")
+	if code != http.StatusMovedPermanently || loc != "https://"+domain+"/precios?x=1" {
+		t.Fatalf("redirección del alias: HTTP %d Location=%q", code, loc)
+	}
+	t.Logf("redirección OK: %s → %s", alias, loc)
+}
+
+const itName = "ittest2"
+
+func headThroughTraefik(t *testing.T, host, path string) (int, string) {
+	t.Helper()
+	client := traefikClient(host)
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	var last error
+	for i := 0; i < 15; i++ {
+		resp, err := client.Get("https://" + host + path)
+		if err == nil {
+			resp.Body.Close()
+			return resp.StatusCode, resp.Header.Get("Location")
+		}
+		last = err
+		time.Sleep(2 * time.Second)
+	}
+	t.Fatalf("Traefik no respondió para %s: %v", host, last)
+	return 0, ""
+}
+
+func traefikClient(host string) *http.Client {
+	return &http.Client{
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true, ServerName: host},
+			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, network, "127.0.0.1:443")
+			},
+		},
 	}
 }
 
 func runDeploy(t *testing.T, e *Engine, st *store.Store, siteID int64) int64 {
 	t.Helper()
-	depID, err := e.Start(siteID)
+	depID, err := e.Start(siteID, store.SourceManual)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,16 +190,7 @@ func runDeploy(t *testing.T, e *Engine, st *store.Store, siteID int64) int64 {
 // Se ignora el certificado: Let's Encrypt puede tardar unos segundos en emitirlo.
 func fetchThroughTraefik(t *testing.T, domain string) string {
 	t.Helper()
-	client := &http.Client{
-		Timeout: 15 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true, ServerName: domain},
-			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
-				var d net.Dialer
-				return d.DialContext(ctx, network, "127.0.0.1:443")
-			},
-		},
-	}
+	client := traefikClient(domain)
 	var last error
 	for i := 0; i < 15; i++ {
 		resp, err := client.Get("https://" + domain + "/")

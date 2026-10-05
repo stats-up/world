@@ -85,14 +85,17 @@ El panel te sugiere el nombre correcto en **Ajustes**.
    - Privado: `git@github.com:usuario/repo.git`. El panel genera una **deploy key**. Cópiala desde la página del sitio y agrégala en GitHub (*tu repo → Settings → Deploy keys → Add deploy key*), sin marcar "Allow write access".
    - Público: `https://github.com/usuario/repo.git`.
 3. **Dominios:** uno por línea. Pueden ser el dominio principal, `www` y cualquier subdominio. Cada uno necesita un registro DNS **A** apuntando al servidor.
+   Con **"El primer dominio es el principal"** activado, los demás (`www`, un subdominio antiguo, etc.) responden con una redirección **301** al principal, conservando la ruta. Ejemplo: `tienda.miempresa.cl/producto/5` → `miempresa.cl/producto/5`.
 4. **Tipo:**
    - **PHP / Laravel:** usa la imagen [`serversideup/php`](https://serversideup.net/open-source/docker-php/) (nginx + PHP-FPM).
      Elige la versión de PHP y agrega extensiones si las necesitas (`intl`, `gd`, `imagick`, etc.).
      Si el repo tiene `composer.json`, se ejecuta `composer install --no-dev`. Si tiene `package.json`, se ejecuta `npm run build` (opcional).
    - **Estático:** HTML/CSS/JS servido con nginx.
    - **Dockerfile propio:** usa el `Dockerfile` de la raíz del repo. Debes indicar el puerto interno.
-5. **Variables de ambiente:** pega tu `.env` de producción. Se guardan cifradas en el servidor.
-6. Presiona **Deploy** y sigue el log en vivo.
+5. **Carpetas persistentes:** rutas del contenedor que se guardan en volúmenes de Docker y sobreviven a cada deploy. En Laravel: `/var/www/html/storage` (archivos subidos, logs, sesiones en archivo). Al eliminar un sitio sus volúmenes se conservan; para borrarlos: `docker volume ls` y `docker volume rm <nombre>`.
+6. **Cron:** comando que el panel ejecuta **cada minuto dentro del contenedor**. En Laravel: `php artisan schedule:run`, y las tareas se definen en `routes/console.php`. La página del sitio muestra la última ejecución, su código de salida y su salida.
+7. **Variables de ambiente:** pega tu `.env` de producción. Se guardan cifradas en el servidor.
+8. Presiona **Deploy** y sigue el log en vivo.
 
 Cada deploy **construye una imagen nueva, levanta el contenedor nuevo, verifica que arranque y recién entonces retira el anterior**.
 Si el contenedor nuevo falla, el sitio sigue funcionando con la versión anterior y el log muestra las últimas líneas del error.
@@ -143,13 +146,16 @@ En cada sitio puedes activar **"Deploy automático"**. Con eso, el panel consult
 
 ## Monitoreo: `/health`
 
-El panel expone `https://tu-panel/health` (sin login) con el estado de los dos procesos periódicos:
+El panel expone `https://tu-panel/health` (sin login) con el estado de los procesos periódicos:
 
 ```json
 {"version":"9557927","ok":true,
  "auto_deploy":{"seconds_ago":12,"ok":true},
- "self_update":{"seconds_ago":40,"ok":true}}
+ "self_update":{"seconds_ago":40,"ok":true},
+ "site_cron":{"seconds_ago":3,"ok":true}}
 ```
+
+`site_cron` indica que el ciclo de cron de los sitios está corriendo. El resultado de cada sitio (código de salida y salida) se ve en la página del sitio.
 
 Responde **HTTP 503** si alguno lleva varios minutos sin correr. Puedes apuntar un monitor externo gratuito (por ejemplo UptimeRobot) a esa URL para que te avise. El mismo estado aparece en el dashboard del panel.
 
@@ -202,7 +208,8 @@ sudo rm -rf /etc/systemd/system/world*.service /etc/systemd/system/world-update.
 
 - [x] **Fase 1:** instalador, auto-update, login con 2FA, sitios desde GitHub, dominios y subdominios con SSL, variables de ambiente, límites de RAM/CPU y logs
 - [x] **Deploy automático por sitio** (revisión de la rama cada minuto) y endpoint `/health`
-- [ ] **Fase 2:** volúmenes persistentes, comandos de release (migraciones, seeders), rollback, workers de colas y scheduler de Laravel, archivos de llaves y assets compartidos
+- [x] **Carpetas persistentes**, **cron por sitio** (`schedule:run`) y **redirección de alias** al dominio principal
+- [ ] **Fase 2:** comandos de release (migraciones, seeders), rollback, workers de colas, archivos de llaves y assets compartidos
 - [ ] **Dominios y correo:** DNS mediante API (registros automáticos al agregar dominios, certificados wildcard) y envío con Amazon SES (verificación de dominio, DKIM, SPF y DMARC automáticos, y credenciales `MAIL_*` para los sitios)
 - [ ] **Fase 3:** crons HTTP hacia APIs con historial, y bases de datos y usuarios en MySQL/MariaDB (RDS) desde el panel
 - [ ] **Fase 4:** monitoreo de recursos, registro de caídas con diagnóstico, alertas (email/Telegram) y recomendaciones de recursos

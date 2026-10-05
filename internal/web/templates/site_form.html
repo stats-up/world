@@ -29,6 +29,20 @@
       <textarea name="domains" rows="3" placeholder="miempresa.cl&#10;www.miempresa.cl&#10;api.miempresa.cl">{{join .Site.Domains "\n"}}</textarea>
       <small>Cada dominio debe tener un registro DNS tipo A apuntando a la IP de este servidor. El certificado SSL se emite solo.</small>
     </label>
+    <label class="check"><input type="checkbox" name="redirect_aliases" value="1"{{if .Site.RedirectAliases}} checked{{end}}> El primer dominio es el principal: los demás redirigen a él (301, conservando la ruta)</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Datos y tareas programadas</legend>
+    <label>Carpetas persistentes (una por línea)
+      <textarea name="persist_paths" rows="2" class="mono" spellcheck="false" placeholder="/var/www/html/storage">{{join .Site.PersistPaths "\n"}}</textarea>
+      <small>Se guardan en volúmenes de Docker y sobreviven a cada deploy (archivos subidos, logs, sesiones). En Laravel: <code>/var/www/html/storage</code>.
+        Al eliminar el sitio los volúmenes se conservan.</small>
+    </label>
+    <label>Cron (cada minuto, dentro del contenedor)
+      <input name="cron_command" value="{{.Site.CronCommand}}" class="mono" placeholder="php artisan schedule:run">
+      <small>En Laravel deja <code>php artisan schedule:run</code> y define las tareas en <code>routes/console.php</code>. Vacío = sin cron.</small>
+    </label>
   </fieldset>
 
   <fieldset>

@@ -26,6 +26,7 @@ var (
 	branchRe = regexp.MustCompile(`^[A-Za-z0-9._][A-Za-z0-9._/-]{0,99}$`)
 	sshRepo  = regexp.MustCompile(`^git@[A-Za-z0-9.-]+:[A-Za-z0-9._/-]+$`)
 	extRe    = regexp.MustCompile(`^[a-z0-9_]+$`)
+	pathRe   = regexp.MustCompile(`^(/[A-Za-z0-9._-]+)+$`)
 
 	phpVersions = []string{"8.4", "8.3", "8.2", "8.1"}
 	siteKinds   = []struct{ Value, Label string }{
@@ -68,7 +69,8 @@ func (s *Server) siteFormData(site *store.Site, env string, errs []string, isNew
 }
 
 func (s *Server) siteNew(w http.ResponseWriter, r *http.Request) {
-	site := &store.Site{Branch: "main", Kind: store.KindPHP, PHPVersion: "8.3", BuildAssets: true, Port: 8080}
+	site := &store.Site{Branch: "main", Kind: store.KindPHP, PHPVersion: "8.3", BuildAssets: true, Port: 8080,
+		RedirectAliases: true, PersistPaths: []string{laravelStorage}, CronCommand: laravelCron}
 	s.render(w, r, "site_form", s.siteFormData(site, "", nil, true))
 }
 
@@ -148,6 +150,8 @@ func (s *Server) readSiteForm(r *http.Request, site *store.Site) (string, []stri
 	site.BuildAssets = r.FormValue("build_assets") == "1"
 	site.Autorun = r.FormValue("autorun") == "1"
 	site.AutoDeploy = r.FormValue("auto_deploy") == "1"
+	site.RedirectAliases = r.FormValue("redirect_aliases") == "1"
+	site.CronCommand = strings.TrimSpace(r.FormValue("cron_command"))
 	env := strings.ReplaceAll(r.FormValue("env"), "\r\n", "\n")
 
 	if !validRepoURL(site.RepoURL) {
@@ -204,6 +208,21 @@ func (s *Server) readSiteForm(r *http.Request, site *store.Site) (string, []stri
 			site.Domains = append(site.Domains, d)
 		}
 	}
+
+	site.PersistPaths = nil
+	for _, p := range store.SplitLines(r.FormValue("persist_paths")) {
+		p = strings.TrimSuffix(p, "/")
+		if !pathRe.MatchString(p) || strings.Contains(p, "/..") || strings.Contains(p, "/./") {
+			errs = append(errs, "Carpeta persistente inválida (debe ser una ruta absoluta, ej: /var/www/html/storage): "+p)
+		}
+		if !oneOf(p, site.PersistPaths...) {
+			site.PersistPaths = append(site.PersistPaths, p)
+		}
+	}
+	if strings.ContainsAny(site.CronCommand, "\r\n") || len(site.CronCommand) > 500 {
+		errs = append(errs, "El comando cron debe ser una sola línea (máx. 500 caracteres).")
+	}
+
 	if err := s.checkDomainConflicts(site); err != nil {
 		errs = append(errs, err.Error())
 	}
@@ -212,6 +231,12 @@ func (s *Server) readSiteForm(r *http.Request, site *store.Site) (string, []stri
 	}
 	return env, errs
 }
+
+// Valores sugeridos para sitios Laravel nuevos.
+const (
+	laravelStorage = "/var/www/html/storage"
+	laravelCron    = "php artisan schedule:run"
+)
 
 func validRepoURL(u string) bool {
 	if sshRepo.MatchString(u) {

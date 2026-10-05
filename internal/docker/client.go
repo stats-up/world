@@ -244,6 +244,38 @@ func (c *Client) ContainerLogs(ctx context.Context, id string, tail int) (string
 	return demux(data), nil
 }
 
+// ContainerExec ejecuta cmd dentro del contenedor (como su usuario por defecto) y espera a que termine.
+// Devuelve la salida combinada (stdout+stderr, máx. 1 MB) y el código de salida.
+func (c *Client) ContainerExec(ctx context.Context, id string, cmd []string) (string, int, error) {
+	var created struct {
+		ID string `json:"Id"`
+	}
+	err := c.call(ctx, "POST", "/containers/"+id+"/exec", nil, map[string]any{
+		"AttachStdout": true, "AttachStderr": true, "Cmd": cmd,
+	}, &created)
+	if err != nil {
+		return "", -1, err
+	}
+	resp, err := c.do(ctx, "POST", "/exec/"+created.ID+"/start", nil, map[string]any{"Detach": false, "Tty": false})
+	if err != nil {
+		return "", -1, err
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	io.Copy(io.Discard, resp.Body) // si la salida supera el límite, igual hay que esperar a que termine
+	resp.Body.Close()
+	if err != nil {
+		return demux(data), -1, err
+	}
+	var info struct {
+		Running  bool `json:"Running"`
+		ExitCode int  `json:"ExitCode"`
+	}
+	if err := c.call(ctx, "GET", "/exec/"+created.ID+"/json", nil, nil, &info); err != nil {
+		return demux(data), -1, err
+	}
+	return demux(data), info.ExitCode, nil
+}
+
 // demux quita las cabeceras de 8 bytes que Docker agrega a cada bloque cuando el contenedor no usa TTY.
 func demux(data []byte) string {
 	var out bytes.Buffer
@@ -258,6 +290,15 @@ func demux(data []byte) string {
 	}
 	out.Write(data) // resto sin cabecera (contenedores con TTY)
 	return out.String()
+}
+
+// VolumeRemove elimina un volumen (no falla si no existe).
+func (c *Client) VolumeRemove(ctx context.Context, name string) error {
+	err := c.call(ctx, "DELETE", "/volumes/"+name, nil, nil, nil)
+	if IsNotFound(err) {
+		return nil
+	}
+	return err
 }
 
 // --- Imágenes ---

@@ -19,7 +19,14 @@
     <dl class="props">
       <dt>Repositorio</dt><dd><code>{{.Site.RepoURL}}</code> ({{.Site.Branch}})</dd>
       <dt>Tipo</dt><dd>{{.Site.Kind}}{{if eq .Site.Kind "php"}} · PHP {{.Site.PHPVersion}}{{with .Site.PHPExtensions}} · ext: {{.}}{{end}}{{end}}</dd>
-      <dt>Dominios</dt><dd>{{range .Site.Domains}}<a href="https://{{.}}" target="_blank" rel="noopener">{{.}}</a><br>{{else}}<span class="muted">sin dominio (no es accesible desde internet)</span>{{end}}</dd>
+      <dt>Dominios</dt><dd>{{range $i, $d := .Site.Domains}}<a href="https://{{$d}}" target="_blank" rel="noopener">{{$d}}</a>{{if and $.Site.RedirectAliases (gt (len $.Site.Domains) 1)}}{{if eq $i 0}} <span class="badge ok">principal</span>{{else}} <span class="muted small">→ redirige al principal</span>{{end}}{{end}}<br>{{else}}<span class="muted">sin dominio (no es accesible desde internet)</span>{{end}}</dd>
+      <dt>Carpetas persistentes</dt><dd>{{range .Site.PersistPaths}}<code>{{.}}</code><br>{{else}}<span class="muted">ninguna (todo se pierde en cada deploy)</span>{{end}}</dd>
+      <dt>Cron</dt><dd>{{if .Site.CronCommand}}<code>{{.Site.CronCommand}}</code> <span class="muted small">cada minuto</span><br>
+        {{if .Site.LastCronAt.IsZero}}<span class="muted small">aún no se ha ejecutado</span>
+        {{else}}{{if eq .Site.LastCronExit 0}}<span class="badge ok">OK</span>{{else}}<span class="badge err">código {{.Site.LastCronExit}}</span>{{end}}
+          <span class="muted small">{{ago .Site.LastCronAt}} · {{.Site.LastCronMS}} ms</span>
+          {{with .Site.LastCronOutput}}<details><summary class="small">Salida de la última ejecución</summary><pre class="log">{{.}}</pre></details>{{end}}
+        {{end}}{{else}}<span class="muted">sin cron</span>{{end}}</dd>
       <dt>Deploy automático</dt><dd>{{if .Site.AutoDeploy}}<span class="badge ok">activo</span>
         {{if not .Site.LastCheckAt.IsZero}}<span class="muted small">revisado {{ago .Site.LastCheckAt}}{{with .Site.LastRemoteSHA}} · último commit <code>{{short .}}</code>{{end}}</span>{{else}}<span class="muted small">esperando el primer chequeo</span>{{end}}
         {{with .Site.LastCheckError}}<div class="flash error small">{{.}}</div>{{end}}
@@ -83,7 +90,7 @@
 
 <section class="card danger">
   <h2>Eliminar sitio</h2>
-  <p class="muted small">Elimina el contenedor, las imágenes y la configuración. No se puede deshacer.</p>
+  <p class="muted small">Elimina el contenedor, las imágenes y la configuración. No se puede deshacer. Los volúmenes de datos (carpetas persistentes) se conservan.</p>
   <form method="post" action="/sites/{{.Site.ID}}/delete" class="inline-form">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
     <input name="confirm" placeholder="Escribe {{.Site.Name}} para confirmar" required autocomplete="off">

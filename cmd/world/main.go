@@ -93,7 +93,8 @@ func serve(cfg config.Config) error {
 	px := proxy.New(dc, cfg)
 	engine := deploy.New(cfg, st, dc, box)
 	poller := deploy.NewPoller(engine, st, time.Minute)
-	srv, err := web.New(cfg, st, dc, box, engine, poller, px, version)
+	cron := deploy.NewCron(engine, st, time.Minute)
+	srv, err := web.New(cfg, st, dc, box, engine, poller, cron, px, version)
 	if err != nil {
 		return err
 	}
@@ -102,6 +103,7 @@ func serve(cfg config.Config) error {
 	defer stop()
 
 	go poller.Run(ctx)
+	go cron.Run(ctx)
 	go px.EnsureLoop(ctx, func() (string, string) {
 		return st.Setting("acme_email"), st.Setting("panel_domain")
 	})

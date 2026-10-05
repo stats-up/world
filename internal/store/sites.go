@@ -37,6 +37,34 @@ type Site struct {
 	LastCheckAt    time.Time
 	LastRemoteSHA  string
 	LastCheckError string
+
+	// Carpetas del contenedor que se guardan en volúmenes de Docker y sobreviven a los deploys.
+	PersistPaths []string
+	// RedirectAliases: los dominios distintos del primero redirigen (301) al dominio principal.
+	RedirectAliases bool
+
+	// Cron: comando que world ejecuta cada minuto dentro del contenedor (ej: php artisan schedule:run).
+	CronCommand    string
+	LastCronAt     time.Time
+	LastCronExit   int
+	LastCronMS     int64
+	LastCronOutput string
+}
+
+// PrimaryDomain es el primer dominio de la lista (el principal).
+func (s *Site) PrimaryDomain() string {
+	if len(s.Domains) == 0 {
+		return ""
+	}
+	return s.Domains[0]
+}
+
+// Aliases son los dominios que no son el principal.
+func (s *Site) Aliases() []string {
+	if len(s.Domains) < 2 {
+		return nil
+	}
+	return s.Domains[1:]
 }
 
 // UsesSSH indica si el repo se clona por SSH (privado, con deploy key).
@@ -58,24 +86,31 @@ func (s *Site) InternalPort() int {
 
 const siteCols = `id, name, repo_url, branch, kind, php_version, php_extensions, build_assets, autorun, port,
 	domains, env_enc, deploy_key_pub, deploy_key_enc, memory_mb, cpus, current_image, created_at,
-	auto_deploy, last_check_at, last_remote_sha, last_check_error`
+	auto_deploy, last_check_at, last_remote_sha, last_check_error,
+	persist_paths, redirect_aliases, cron_command, last_cron_at, last_cron_exit, last_cron_ms, last_cron_output`
 
 func scanSite(row interface{ Scan(...any) error }) (*Site, error) {
 	var s Site
-	var assets, autorun, auto int
-	var domains string
-	var created, checked int64
+	var assets, autorun, auto, redirect int
+	var domains, persist string
+	var created, checked, cronAt int64
 	err := row.Scan(&s.ID, &s.Name, &s.RepoURL, &s.Branch, &s.Kind, &s.PHPVersion, &s.PHPExtensions,
 		&assets, &autorun, &s.Port, &domains, &s.EnvEnc, &s.DeployKeyPub, &s.DeployKeyEnc,
 		&s.MemoryMB, &s.CPUs, &s.CurrentImage, &created,
-		&auto, &checked, &s.LastRemoteSHA, &s.LastCheckError)
+		&auto, &checked, &s.LastRemoteSHA, &s.LastCheckError,
+		&persist, &redirect, &s.CronCommand, &cronAt, &s.LastCronExit, &s.LastCronMS, &s.LastCronOutput)
 	if err != nil {
 		return nil, notFound(err)
 	}
 	s.BuildAssets = assets == 1
 	s.Autorun = autorun == 1
 	s.AutoDeploy = auto == 1
+	s.RedirectAliases = redirect == 1
 	s.Domains = SplitLines(domains)
+	s.PersistPaths = SplitLines(persist)
+	if cronAt > 0 {
+		s.LastCronAt = time.Unix(cronAt, 0)
+	}
 	s.CreatedAt = time.Unix(created, 0)
 	if checked > 0 {
 		s.LastCheckAt = time.Unix(checked, 0)
@@ -106,12 +141,13 @@ func (s *Store) Site(id int64) (*Site, error) {
 
 func (s *Store) CreateSite(site *Site) (int64, error) {
 	res, err := s.db.Exec(`INSERT INTO sites (name, repo_url, branch, kind, php_version, php_extensions,
-		build_assets, autorun, port, domains, env_enc, deploy_key_pub, deploy_key_enc, memory_mb, cpus, created_at, auto_deploy)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		build_assets, autorun, port, domains, env_enc, deploy_key_pub, deploy_key_enc, memory_mb, cpus, created_at, auto_deploy,
+		persist_paths, redirect_aliases, cron_command)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		site.Name, site.RepoURL, site.Branch, site.Kind, site.PHPVersion, site.PHPExtensions,
 		boolInt(site.BuildAssets), boolInt(site.Autorun), site.Port, strings.Join(site.Domains, "\n"),
 		site.EnvEnc, site.DeployKeyPub, site.DeployKeyEnc, site.MemoryMB, site.CPUs, time.Now().Unix(),
-		boolInt(site.AutoDeploy))
+		boolInt(site.AutoDeploy), strings.Join(site.PersistPaths, "\n"), boolInt(site.RedirectAliases), site.CronCommand)
 	if err != nil {
 		return 0, err
 	}
@@ -121,11 +157,13 @@ func (s *Store) CreateSite(site *Site) (int64, error) {
 // UpdateSite guarda los campos editables (el nombre y la deploy key no cambian).
 func (s *Store) UpdateSite(site *Site) error {
 	_, err := s.db.Exec(`UPDATE sites SET repo_url = ?, branch = ?, kind = ?, php_version = ?, php_extensions = ?,
-		build_assets = ?, autorun = ?, port = ?, domains = ?, env_enc = ?, memory_mb = ?, cpus = ?, auto_deploy = ?
+		build_assets = ?, autorun = ?, port = ?, domains = ?, env_enc = ?, memory_mb = ?, cpus = ?, auto_deploy = ?,
+		persist_paths = ?, redirect_aliases = ?, cron_command = ?
 		WHERE id = ?`,
 		site.RepoURL, site.Branch, site.Kind, site.PHPVersion, site.PHPExtensions,
 		boolInt(site.BuildAssets), boolInt(site.Autorun), site.Port, strings.Join(site.Domains, "\n"),
-		site.EnvEnc, site.MemoryMB, site.CPUs, boolInt(site.AutoDeploy), site.ID)
+		site.EnvEnc, site.MemoryMB, site.CPUs, boolInt(site.AutoDeploy),
+		strings.Join(site.PersistPaths, "\n"), boolInt(site.RedirectAliases), site.CronCommand, site.ID)
 	return err
 }
 
@@ -138,6 +176,13 @@ func (s *Store) SetSiteImage(id int64, image string) error {
 func (s *Store) SetSiteCheck(id int64, at time.Time, sha, errMsg string) error {
 	_, err := s.db.Exec(`UPDATE sites SET last_check_at = ?, last_remote_sha = ?, last_check_error = ? WHERE id = ?`,
 		at.Unix(), sha, errMsg, id)
+	return err
+}
+
+// SetSiteCron guarda el resultado de la última ejecución del cron del sitio.
+func (s *Store) SetSiteCron(id int64, at time.Time, exit int, took time.Duration, output string) error {
+	_, err := s.db.Exec(`UPDATE sites SET last_cron_at = ?, last_cron_exit = ?, last_cron_ms = ?, last_cron_output = ? WHERE id = ?`,
+		at.Unix(), exit, took.Milliseconds(), output, id)
 	return err
 }
 

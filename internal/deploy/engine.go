@@ -198,12 +198,17 @@ func containerConfig(site *store.Site, image string, env []string, deployID int6
 	for k, v := range TraefikLabels(site) {
 		labels[k] = v
 	}
+	var binds []string
+	for _, path := range site.PersistPaths {
+		binds = append(binds, VolumeName(site.Name, path)+":"+path)
+	}
 	cfg := docker.ContainerConfig{
 		Image:        image,
 		Env:          env,
 		Labels:       labels,
 		ExposedPorts: map[string]struct{}{fmt.Sprintf("%d/tcp", site.InternalPort()): {}},
 		HostConfig: docker.HostConfig{
+			Binds:         binds,
 			RestartPolicy: docker.RestartPolicy{Name: "unless-stopped"},
 			Memory:        int64(site.MemoryMB) << 20,
 			NanoCPUs:      int64(site.CPUs * 1e9),
@@ -213,25 +218,59 @@ func containerConfig(site *store.Site, image string, env []string, deployID int6
 	return cfg
 }
 
+// VolumeName es el volumen de Docker donde se guarda una carpeta persistente del sitio.
+// Ej: ("tienda", "/var/www/html/storage") → "world-tienda-var-www-html-storage".
+// Los volúmenes no se borran al eliminar el sitio: los datos se conservan.
+func VolumeName(site, path string) string {
+	slug := strings.Trim(strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '.' {
+			return r
+		}
+		return '-'
+	}, path), "-.")
+	return "world-" + site + "-" + slug
+}
+
+func hostRule(domains []string) string {
+	rules := make([]string, len(domains))
+	for i, d := range domains {
+		rules[i] = "Host(`" + d + "`)"
+	}
+	return strings.Join(rules, " || ")
+}
+
 // TraefikLabels genera las labels que Traefik lee para enrutar los dominios del sitio con HTTPS.
+// Con RedirectAliases, solo el dominio principal llega a la app y los demás redirigen a él (301).
 func TraefikLabels(site *store.Site) map[string]string {
 	if len(site.Domains) == 0 {
 		return nil
 	}
 	r := "site-" + site.Name
-	rules := make([]string, len(site.Domains))
-	for i, d := range site.Domains {
-		rules[i] = "Host(`" + d + "`)"
+	served := site.Domains
+	if site.RedirectAliases {
+		served = site.Domains[:1]
 	}
-	return map[string]string{
+	labels := map[string]string{
 		"traefik.enable":                                           "true",
 		"traefik.docker.network":                                   proxy.Network,
-		"traefik.http.routers." + r + ".rule":                      strings.Join(rules, " || "),
+		"traefik.http.routers." + r + ".rule":                      hostRule(served),
 		"traefik.http.routers." + r + ".entrypoints":               "websecure",
 		"traefik.http.routers." + r + ".tls.certresolver":          proxy.CertResolver,
 		"traefik.http.routers." + r + ".service":                   r,
 		"traefik.http.services." + r + ".loadbalancer.server.port": strconv.Itoa(site.InternalPort()),
 	}
+	if aliases := site.Aliases(); site.RedirectAliases && len(aliases) > 0 {
+		a, mw := r+"-alias", r+"-redirect"
+		labels["traefik.http.routers."+a+".rule"] = hostRule(aliases)
+		labels["traefik.http.routers."+a+".entrypoints"] = "websecure"
+		labels["traefik.http.routers."+a+".tls.certresolver"] = proxy.CertResolver
+		labels["traefik.http.routers."+a+".middlewares"] = mw
+		labels["traefik.http.routers."+a+".service"] = r
+		labels["traefik.http.middlewares."+mw+".redirectregex.regex"] = `^https?://[^/]+(.*)$`
+		labels["traefik.http.middlewares."+mw+".redirectregex.replacement"] = "https://" + site.PrimaryDomain() + "${1}"
+		labels["traefik.http.middlewares."+mw+".redirectregex.permanent"] = "true"
+	}
+	return labels
 }
 
 func (e *Engine) containerEnv(site *store.Site) ([]string, error) {

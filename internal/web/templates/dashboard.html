@@ -20,6 +20,9 @@
   <div class="stat"><span>Auto-update del panel (cada 1 min)</span>
     <strong>{{if .SelfUpdate.OK}}<span class="badge ok">activo</span>{{else}}<span class="badge err">detenido</span>{{end}}</strong>
     <span>{{if ge .SelfUpdate.SecondsAgo 0}}último chequeo hace {{.SelfUpdate.SecondsAgo}} s{{else}}{{.SelfUpdate.Error}}{{end}}</span></div>
+  <div class="stat"><span>Cron de sitios (cada 1 min)</span>
+    <strong>{{if .SiteCron.OK}}<span class="badge ok">activo</span>{{else if lt .SiteCron.SecondsAgo 0}}<span class="badge muted">iniciando</span>{{else}}<span class="badge err">detenido</span>{{end}}</strong>
+    <span>{{if ge .SiteCron.SecondsAgo 0}}último ciclo hace {{.SiteCron.SecondsAgo}} s{{else}}parte al inicio del próximo minuto{{end}}</span></div>
 </section>
 {{end}}
 

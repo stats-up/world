@@ -22,6 +22,7 @@ type healthReport struct {
 	OK         bool       `json:"ok"`
 	AutoDeploy cronStatus `json:"auto_deploy"` // revisión de ramas de los sitios (dentro del panel)
 	SelfUpdate cronStatus `json:"self_update"` // auto-update del propio panel (timer de systemd)
+	SiteCron   cronStatus `json:"site_cron"`   // cron de los sitios (ej: schedule:run), dentro del panel
 }
 
 func newCronStatus(last time.Time, ok bool, errMsg string) cronStatus {
@@ -38,13 +39,15 @@ func (s *Server) healthStatus() healthReport {
 		Version:    s.version,
 		AutoDeploy: newCronStatus(ph.LastRun, ph.OK, ph.Error),
 	}
+	ch := s.cron.Health()
+	rep.SiteCron = newCronStatus(ch.LastRun, ch.OK, ch.Error)
 	// update.sh deja la hora de su último chequeo en este archivo (ver scripts/update.sh).
 	if st, err := os.Stat(s.cfg.Path("update-heartbeat")); err == nil {
 		rep.SelfUpdate = newCronStatus(st.ModTime(), time.Since(st.ModTime()) < selfUpdateMaxAge, "")
 	} else {
 		rep.SelfUpdate = newCronStatus(time.Time{}, false, "sin registro: el timer world-update no ha corrido")
 	}
-	rep.OK = rep.AutoDeploy.OK && rep.SelfUpdate.OK
+	rep.OK = rep.AutoDeploy.OK && rep.SelfUpdate.OK && rep.SiteCron.OK
 	return rep
 }
 
