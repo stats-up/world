@@ -146,7 +146,12 @@ func phpDockerfile(site *store.Site, hasComposer, hasPackageJSON bool) string {
 	b.WriteString("WORKDIR /var/www/html\n")
 	b.WriteString("COPY --chown=www-data:www-data . .\n")
 	if hasComposer {
-		b.WriteString("RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader\n")
+		// Al compilar no hay .env ni base de datos: si un ServiceProvider consulta la base al arrancar,
+		// package:discover (script de composer) fallaría y tumbaría el build. Se ejecuta aparte y, si falla,
+		// Laravel arma el manifiesto de paquetes solo en el primer arranque, ya con sus variables.
+		b.WriteString("RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts \\\n" +
+			"    && (composer run-script post-autoload-dump --no-dev --no-interaction \\\n" +
+			"        || echo '⚠ world: los scripts de composer fallaron sin .env/base de datos; Laravel descubrirá los paquetes al iniciar')\n")
 	}
 	if hasPackageJSON && site.BuildAssets {
 		// Los assets se compilan después de composer: Livewire/Flux importan CSS desde vendor/.
