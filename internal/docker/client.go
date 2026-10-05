@@ -276,6 +276,57 @@ func (c *Client) ContainerExec(ctx context.Context, id string, cmd []string) (st
 	return demux(data), info.ExitCode, nil
 }
 
+// ExecSession es un proceso interactivo (con TTY) dentro de un contenedor.
+// Conn transporta la entrada y la salida del terminal en crudo.
+type ExecSession struct {
+	ID   string
+	Conn io.ReadWriteCloser
+}
+
+// ExecAttach inicia cmd con TTY dentro del contenedor y devuelve la conexión al terminal.
+// user vacío = el usuario por defecto de la imagen.
+func (c *Client) ExecAttach(ctx context.Context, id string, cmd []string, user string, env []string) (*ExecSession, error) {
+	var created struct {
+		ID string `json:"Id"`
+	}
+	err := c.call(ctx, "POST", "/containers/"+id+"/exec", nil, map[string]any{
+		"AttachStdin": true, "AttachStdout": true, "AttachStderr": true, "Tty": true,
+		"Cmd": cmd, "Env": env, "User": user,
+	}, &created)
+	if err != nil {
+		return nil, err
+	}
+	b, _ := json.Marshal(map[string]any{"Detach": false, "Tty": true})
+	req, err := http.NewRequestWithContext(ctx, "POST", "http://docker/exec/"+created.ID+"/start", bytes.NewReader(b))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Upgrade", "tcp")
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		defer resp.Body.Close()
+		data, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
+		return nil, &APIError{Status: resp.StatusCode, Message: strings.TrimSpace(string(data))}
+	}
+	conn, ok := resp.Body.(io.ReadWriteCloser)
+	if !ok {
+		resp.Body.Close()
+		return nil, errors.New("docker: la conexión del exec no admite escritura")
+	}
+	return &ExecSession{ID: created.ID, Conn: conn}, nil
+}
+
+// ExecResize ajusta el tamaño del TTY de un exec interactivo.
+func (c *Client) ExecResize(ctx context.Context, execID string, cols, rows int) error {
+	q := url.Values{"w": {fmt.Sprint(cols)}, "h": {fmt.Sprint(rows)}}
+	return c.call(ctx, "POST", "/exec/"+execID+"/resize", q, nil, nil)
+}
+
 // demux quita las cabeceras de 8 bytes que Docker agrega a cada bloque cuando el contenedor no usa TTY.
 func demux(data []byte) string {
 	var out bytes.Buffer

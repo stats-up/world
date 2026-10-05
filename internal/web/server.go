@@ -132,6 +132,8 @@ func (s *Server) Handler() http.Handler {
 	priv("POST /sites/{id}/control/{action}", s.siteControl)
 	priv("POST /sites/{id}/delete", s.siteDelete)
 	priv("GET /sites/{id}/logs", s.siteLogs)
+	priv("GET /sites/{id}/console", s.siteConsole)
+	priv("GET /sites/{id}/console/ws", s.siteConsoleWS)
 	priv("GET /deployments/{id}", s.deploymentShow)
 	priv("GET /deployments/{id}/log", s.deploymentLog)
 	priv("GET /settings", s.settingsForm)

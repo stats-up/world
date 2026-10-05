@@ -112,7 +112,7 @@ func (c *Cron) runSite(ctx context.Context, site *store.Site) {
 	ctx, cancel := context.WithTimeout(ctx, c.Timeout)
 	defer cancel()
 	start := time.Now()
-	id, err := c.engine.runningContainer(ctx, site)
+	id, err := c.engine.RunningContainer(ctx, site)
 	if err != nil {
 		// Sin contenedor (aún no desplegado o detenido): no hay nada que ejecutar.
 		return
@@ -133,9 +133,9 @@ func (c *Cron) runSite(ctx context.Context, site *store.Site) {
 	}
 }
 
-// runningContainer devuelve el contenedor activo del sitio. Durante un deploy conviven dos:
+// RunningContainer devuelve el contenedor activo del sitio. Durante un deploy conviven dos:
 // se prefiere el de la versión vigente (la que ya pasó la verificación), si no, el más reciente.
-func (e *Engine) runningContainer(ctx context.Context, site *store.Site) (string, error) {
+func (e *Engine) RunningContainer(ctx context.Context, site *store.Site) (string, error) {
 	list, err := e.dc.ContainersByLabel(ctx, labelSite+"="+site.Name)
 	if err != nil {
 		return "", err

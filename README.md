@@ -112,6 +112,15 @@ Si el contenedor nuevo falla, el sitio sigue funcionando con la versión anterio
   })
   ```
 
+### Consola
+
+En la página del sitio, **Consola** abre una terminal dentro del contenedor activo, directo en el navegador: `php artisan`, `composer`, `ls`, `tail -f storage/logs/...`, etc.
+
+- Por defecto entra con el usuario de la imagen (en PHP/Laravel: `www-data`). **Abrir como root** sirve para tareas de sistema.
+- Los cambios en archivos fuera de las carpetas persistentes se pierden en el próximo deploy.
+- Solo la pueden abrir usuarios con sesión iniciada (y 2FA si está activo). Cada apertura y cierre queda en el log del panel (`journalctl -u world | grep consola`).
+- La sesión se cierra sola a las 4 horas.
+
 ## Actualizaciones automáticas
 
 El servidor revisa este repositorio cada minuto (`world-update.timer`). Si hay commits nuevos en la rama configurada:
@@ -209,6 +218,7 @@ sudo rm -rf /etc/systemd/system/world*.service /etc/systemd/system/world-update.
 - [x] **Fase 1:** instalador, auto-update, login con 2FA, sitios desde GitHub, dominios y subdominios con SSL, variables de ambiente, límites de RAM/CPU y logs
 - [x] **Deploy automático por sitio** (revisión de la rama cada minuto) y endpoint `/health`
 - [x] **Carpetas persistentes**, **cron por sitio** (`schedule:run`) y **redirección de alias** al dominio principal
+- [x] **Consola web** dentro de los contenedores (xterm.js)
 - [ ] **Fase 2:** comandos de release (migraciones, seeders), rollback, workers de colas, archivos de llaves y assets compartidos
 - [ ] **Dominios y correo:** DNS mediante API (registros automáticos al agregar dominios, certificados wildcard) y envío con Amazon SES (verificación de dominio, DKIM, SPF y DMARC automáticos, y credenciales `MAIL_*` para los sitios)
 - [ ] **Fase 3:** crons HTTP hacia APIs con historial, y bases de datos y usuarios en MySQL/MariaDB (RDS) desde el panel

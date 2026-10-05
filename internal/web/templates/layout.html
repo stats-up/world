@@ -7,6 +7,7 @@
   <title>{{block "title" .}}world{{end}} · world</title>
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/htmx.min.js" defer></script>
+  {{block "head" .}}{{end}}
 </head>
 <body{{if .CSRF}} hx-headers='{"X-CSRF-Token": "{{.CSRF}}"}'{{end}}>
   {{if .User}}

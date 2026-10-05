@@ -1,0 +1,22 @@
+{{define "title"}}Consola {{.Site.Name}}{{end}}
+{{define "head"}}
+  <link rel="stylesheet" href="/static/xterm/xterm.css">
+  <script src="/static/xterm/xterm.js" defer></script>
+  <script src="/static/xterm/addon-fit.js" defer></script>
+  <script src="/static/console.js" defer></script>
+{{end}}
+{{define "content"}}
+<p class="crumbs"><a href="/">Sitios</a> / <a href="/sites/{{.Site.ID}}">{{.Site.Name}}</a> / Consola</p>
+<div class="row">
+  <h1>Consola <span class="muted small">{{.Site.Name}}</span> <span id="console-status" class="badge muted">conectando…</span></h1>
+  <div class="actions">
+    {{if .Root}}<a class="button" href="/sites/{{.Site.ID}}/console">Usuario de la app</a><span class="badge err">root</span>
+    {{else}}<a class="button" href="/sites/{{.Site.ID}}/console?user=root">Abrir como root</a>{{end}}
+    <button type="button" id="console-reconnect" hidden>Reconectar</button>
+  </div>
+</div>
+<p class="muted small">Shell dentro del contenedor activo del sitio{{if .Root}}, <strong>como root</strong>{{else}} (usuario de la imagen, ej: <code>www-data</code>){{end}}.
+  Los cambios en archivos fuera de las carpetas persistentes se pierden en el próximo deploy. Escribe <code>exit</code> para cerrar.</p>
+<div id="terminal" class="console-term"
+     data-ws="/sites/{{.Site.ID}}/console/ws?csrf={{.CSRF}}{{if .Root}}&amp;user=root{{end}}"></div>
+{{end}}

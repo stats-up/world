@@ -148,3 +148,8 @@ pre.log {
   .props dt { margin-top: .4rem; }
   .table th:nth-child(3), .table td:nth-child(3) { display: none; }
 }
+
+/* Consola web (xterm.js) */
+.console-term { height: calc(100vh - 260px); min-height: 320px; background: #11161f; border-radius: var(--radius); padding: 8px; overflow: hidden; }
+.console-term .xterm { height: 100%; }
+.console-term .xterm-viewport { background-color: #11161f !important; }
