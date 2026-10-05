@@ -23,6 +23,8 @@ main() {
   fi
 
   cd "$repo"
+  # Sin esto, si el repo no es accesible git se queda esperando un usuario/contraseña.
+  export GIT_TERMINAL_PROMPT=0
   git fetch --quiet origin "$branch"
   local current remote
   current="$(git rev-parse HEAD)"

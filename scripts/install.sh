@@ -64,7 +64,8 @@ if [ "$mem_mb" -lt 2048 ] && [ -z "$(swapon --show --noheadings)" ]; then
   grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
   echo "Creado swap de 2 GB (el servidor tiene ${mem_mb} MB de RAM)."
 else
-  echo "RAM: ${mem_mb} MB. Swap: $(swapon --show --noheadings | awk '{print $3}' | head -1)"
+  swap_size="$(swapon --show --noheadings | awk '{print $3}' | head -1)"
+  echo "RAM: ${mem_mb} MB. Swap: ${swap_size:-sin swap (no es necesario con 2 GB o más)}"
 fi
 if [ "$mem_mb" -lt 1800 ]; then
   warn "Con menos de 2 GB de RAM habrá espacio para pocos sitios. Recomendado: 2 GB o más."
