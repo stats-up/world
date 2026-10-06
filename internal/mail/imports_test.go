@@ -22,7 +22,7 @@ func TestParseImportLog(t *testing.T) {
 		t.Fatalf("al contar: %+v", s)
 	}
 	s := ParseImportLog(sampleLog)
-	if s.Total != 340 || s.Processed != 40 || s.Done {
+	if s.Total != 340 || s.Processed != 40 || s.Done || s.Transferred != 2 || s.Bytes != 6<<10 || s.ETA != 169 {
 		t.Fatalf("en curso: %+v", s)
 	}
 	s = ParseImportLog(sampleLog + sampleSummary)
@@ -58,5 +58,20 @@ func TestExitMessage(t *testing.T) {
 	}
 	if !strings.Contains(exitMessage(111, 3), "3 errores") {
 		t.Error("111 informa los errores")
+	}
+}
+
+func TestLogTrackerIncremental(t *testing.T) {
+	var tr logTracker
+	// El log llega en trozos y a veces con una línea a medio escribir.
+	cut := strings.Index(sampleLog, "copied to INBOX/2")
+	tr.feed(sampleLog[:cut])
+	if tr.sum.Transferred != 1 || tr.sum.Processed != 1 {
+		t.Fatalf("primer trozo: %+v", tr.sum)
+	}
+	tr.feed(sampleLog[cut:])
+	tr.feed(sampleSummary)
+	if s := tr.sum; s.Transferred != 38 || !s.Done || s.Bytes != 1234567 || s.ETA != 0 {
+		t.Fatalf("final: %+v", s)
 	}
 }

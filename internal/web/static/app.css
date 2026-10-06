@@ -335,6 +335,13 @@ pre.log {
   font: 12.5px/1.5 var(--mono); max-height: 65vh; overflow: auto; white-space: pre-wrap; word-break: break-word; margin-top: .5rem;
 }
 pre.log.short { max-height: 20rem; }
+.probe-btn .loading, .probe-btn.htmx-request .idle { display: none; }
+.probe-btn.htmx-request .loading { display: inline; }
+.import-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; margin: 0; }
+.import-stats div { background: var(--code-bg); border-radius: var(--radius-sm); padding: .6rem .8rem; }
+.import-stats dt { font-size: .8rem; color: var(--muted); }
+.import-stats dd { margin: 0; font-size: 1.25rem; font-weight: 650; }
+.import-stats dd small { font-size: .8rem; font-weight: 400; color: var(--muted); }
 details > summary { cursor: pointer; }
 .qr { background: #fff; padding: 10px; border-radius: var(--radius-sm); }
 .secret-box { font-family: var(--mono); font-size: 1.2rem; letter-spacing: .04em;

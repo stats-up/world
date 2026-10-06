@@ -65,7 +65,12 @@
         <label>Contraseña en el origen<input type="password" name="password" required autocomplete="new-password">
           <small>Se usa solo mientras dura la copia; world no la guarda.</small></label>
       </div>
-      <div class="actions"><button type="submit" class="primary">{{icon "refresh"}} {{if .Imports}}Sincronizar de nuevo{{else}}Importar correos{{end}}</button></div>
+      <div id="import-probe" aria-live="polite"></div>
+      <div class="actions">
+        <button type="button" class="probe-btn" hx-post="/mail/domains/{{.Domain.ID}}/accounts/{{.Account.ID}}/import/test" hx-include="closest form"
+                hx-target="#import-probe" hx-disabled-elt="this">{{icon "check"}} <span class="idle">Probar conexión</span><span class="loading">Probando…</span></button>
+        <button type="submit" class="primary">{{icon "refresh"}} {{if .Imports}}Sincronizar de nuevo{{else}}Importar correos{{end}}</button>
+      </div>
     </form>
   {{end}}
   {{if and .Imports (gt (len .Imports) 1)}}

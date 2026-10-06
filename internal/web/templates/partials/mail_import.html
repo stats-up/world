@@ -14,17 +14,23 @@
     </form>
     {{end}}
   </div>
-  {{if .Import.Running}}
-    {{if .Import.Total}}
-      {{progress .Import.Percent}}
-      <p class="small muted">{{.Import.Copied}} de {{.Import.Total}} correos revisados ({{.Import.Percent}}%). Los que ya estaban en el buzón se saltan.</p>
-    {{else}}
-      <p class="small muted">Conectando y contando las carpetas del origen…</p>
-    {{end}}
-  {{else if eq .Import.Status "success"}}
-    <p class="small">{{.Import.Copied}} correos copiados ({{size .Import.Bytes}}){{if .Import.Total}} · {{.Import.Total}} en el origen{{end}}.</p>
+  {{if or .Import.Total .Import.Copied}}
+    {{if .Import.Running}}{{progress .Import.Percent}}{{end}}
+    <dl class="import-stats">
+      <div><dt>Avance</dt><dd>{{.Import.Percent}}% <small>{{num .Import.Processed}} de {{num .Import.Total}}</small></dd></div>
+      <div><dt>Migrados</dt><dd>{{num .Import.Copied}} <small>{{size .Import.Bytes}}</small></dd></div>
+      <div><dt>Ya estaban en el buzón</dt><dd>{{num .Import.Skipped}}</dd></div>
+      <div><dt>{{if .Import.Running}}Tiempo{{else}}Duración{{end}}</dt><dd>{{.Import.Duration}}{{with .ETA}} <small>quedan ≈ {{.}}</small>{{end}}</dd></div>
+    </dl>
+  {{else if .Import.Running}}
+    <p class="small muted">Conectando y contando los correos de cada carpeta del origen… (con buzones grandes puede tardar unos minutos)</p>
   {{end}}
   {{with .Import.Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
   {{if .Log}}<details{{if .Import.Running}} open{{end}}><summary class="small muted">Log de imapsync</summary><pre class="log short">{{.Log}}</pre></details>{{end}}
 </div>
+{{end}}
+
+{{define "import_probe"}}
+{{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+{{with .Info}}<div class="flash ok">{{icon "check"}}<div><strong>Conexión correcta.</strong> En el origen hay <strong>{{num .Messages}} correos</strong> en {{.Folders}} carpeta{{if ne .Folders 1}}s{{end}}{{if .Partial}} (se contaron las primeras 1.000){{end}}.{{with .Server}} <span class="muted small">Servidor: {{.}}</span>{{end}}</div></div>{{end}}
 {{end}}

@@ -104,6 +104,19 @@ var funcs = template.FuncMap{
 		}
 		return "?"
 	},
+	// num: miles con punto (12.345).
+	"num": func(n int64) string {
+		s := strconv.FormatInt(n, 10)
+		neg := strings.HasPrefix(s, "-")
+		s = strings.TrimPrefix(s, "-")
+		for i := len(s) - 3; i > 0; i -= 3 {
+			s = s[:i] + "." + s[i:]
+		}
+		if neg {
+			return "-" + s
+		}
+		return s
+	},
 	"size": func(b int64) string {
 		switch {
 		case b >= 1<<30:
@@ -192,6 +205,7 @@ func (s *Server) Handler() http.Handler {
 	priv("POST /mail/domains/{id}/accounts/{aid}/password", s.mailAccountPassword)
 	priv("POST /mail/domains/{id}/accounts/{aid}/delete", s.mailAccountDelete)
 	priv("POST /mail/domains/{id}/accounts/{aid}/import", s.mailImportStart)
+	priv("POST /mail/domains/{id}/accounts/{aid}/import/test", s.mailImportProbe)
 	priv("GET /mail/domains/{id}/accounts/{aid}/import/{iid}", s.mailImportStatus)
 	priv("POST /mail/domains/{id}/accounts/{aid}/import/{iid}/cancel", s.mailImportCancel)
 	priv("GET /monitor", s.monitorPage)

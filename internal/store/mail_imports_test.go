@@ -15,11 +15,11 @@ func TestMailImports(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SetMailImportProgress(id, 10, 40, 0); err != nil {
+	if err := st.SetMailImportProgress(id, 10, 8, 40, 0); err != nil {
 		t.Fatal(err)
 	}
 	m, err := st.MailImport(id)
-	if err != nil || !m.Running() || m.Percent() != 25 {
+	if err != nil || !m.Running() || m.Percent() != 25 || m.Skipped() != 2 {
 		t.Fatalf("en curso: %+v %v", m, err)
 	}
 	if run, _ := st.RunningMailImports(); len(run) != 1 {

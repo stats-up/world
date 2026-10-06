@@ -47,7 +47,29 @@ func sessionCSRF(r *http.Request) string {
 }
 
 func (s *Server) importData(domainID, accountID string, m *store.MailImport, csrf string) data {
-	return data{"Import": m, "Log": lastLines(s.imports.Log(m.ID), 80), "Base": importBase(domainID, accountID), "CSRF": csrf}
+	log := s.imports.Log(m.ID)
+	d := data{"Import": m, "Log": lastLines(log, 80), "Base": importBase(domainID, accountID), "CSRF": csrf}
+	if m.Running() {
+		d["ETA"] = etaText(mail.ParseImportLog(log).ETA)
+	}
+	return d
+}
+
+// etaText: tiempo restante aproximado según imapsync ("" si aún no lo estima).
+func etaText(sec int64) string {
+	switch {
+	case sec <= 0:
+		return ""
+	case sec < 90:
+		return "1 min"
+	case sec < 90*60:
+		return strconv.FormatInt((sec+30)/60, 10) + " min"
+	}
+	h, m := sec/3600, (sec%3600+30)/60
+	if m == 60 {
+		h, m = h+1, 0
+	}
+	return strconv.FormatInt(h, 10) + " h " + strconv.FormatInt(m, 10) + " min"
 }
 
 // lastLines deja las últimas n líneas (el log de imapsync tiene una línea por correo).
@@ -162,4 +184,42 @@ func (s *Server) mailImportCancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mailBack(w, r, back, "ok", "Importación cancelada. Los correos ya copiados quedan en el buzón.")
+}
+
+// mailImportProbe ("Probar conexión"): inicia sesión en el origen y cuenta carpetas y correos.
+// Responde siempre 200 con el resultado para que htmx lo muestre bajo el formulario.
+func (s *Server) mailImportProbe(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := s.mailCtx(r)
+	defer cancel()
+	_, a, ok := s.loadAccount(w, r, ctx)
+	if !ok {
+		return
+	}
+	host := strings.ToLower(strings.TrimSpace(r.FormValue("host")))
+	user := strings.TrimSpace(r.FormValue("user"))
+	password := r.FormValue("password")
+	port, _ := strconv.Atoi(r.FormValue("port"))
+	res := data{}
+	switch {
+	case !validImportHost(host):
+		res["Error"] = "Servidor de origen inválido."
+	case host == s.serverHostname() || host == mail.ContainerName:
+		res["Error"] = "El origen no puede ser este mismo servidor de correo."
+	case port != 993 && port != 143:
+		res["Error"] = "Puerto inválido: usa 993 (SSL) o 143 (STARTTLS)."
+	case !validImportUser(user):
+		res["Error"] = "Usuario de origen inválido."
+	case password == "":
+		res["Error"] = "Escribe la contraseña del buzón en el servidor de origen."
+	default:
+		info, err := mail.ProbeSource(ctx, host, port, user, password)
+		if err != nil {
+			res["Error"] = err.Error()
+		} else {
+			res["Info"] = info
+			res["Quota"] = a.Quota
+		}
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	s.renderPartial(w, "import_probe", res)
 }

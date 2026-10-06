@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -205,19 +206,20 @@ func (im *Importer) follow(ctx context.Context, id int64) {
 		im.mu.Unlock()
 	}()
 	name := importContainer(id)
+	tr := &logTracker{}
 	t := time.NewTicker(pollEvery)
 	defer t.Stop()
 	for {
 		info, err := im.dc.ContainerInspect(ctx, name)
 		if docker.IsNotFound(err) {
 			// Cancelada (ya está cerrada y esto no la pisa) o borrada por fuera / reinicio del servidor.
-			im.saveProgress(id, true)
+			im.saveProgress(id, tr)
 			im.st.FinishMailImport(id, store.ImportFailed,
 				"Se interrumpió (se reinició el servidor o se quitó el contenedor). Sincroniza de nuevo: lo ya copiado no se duplica.")
 			return
 		}
 		if err == nil && !info.State.Running && info.State.Status != "created" {
-			sum := im.saveProgress(id, true)
+			sum := im.saveProgress(id, tr)
 			status, msg := store.ImportSuccess, ""
 			if code := info.State.ExitCode; code != 0 {
 				status, msg = store.ImportFailed, exitMessage(code, sum.Errors)
@@ -232,7 +234,7 @@ func (im *Importer) follow(ctx context.Context, id int64) {
 			return
 		}
 		if err == nil {
-			im.saveProgress(id, false)
+			im.saveProgress(id, tr)
 		}
 		select {
 		case <-ctx.Done():
@@ -242,14 +244,15 @@ func (im *Importer) follow(ctx context.Context, id int64) {
 	}
 }
 
-func (im *Importer) saveProgress(id int64, final bool) Summary {
-	sum := ParseImportLog(im.tail(id, 64<<10))
-	copied := sum.Processed
-	if final && sum.Done {
-		copied = sum.Transferred
+// saveProgress lee lo nuevo del log (desde la última posición) y guarda el avance.
+func (im *Importer) saveProgress(id int64, tr *logTracker) Summary {
+	if f, err := os.Open(im.LogPath(id)); err == nil {
+		tr.read(f)
+		f.Close()
 	}
-	if sum.Total > 0 || final {
-		im.st.SetMailImportProgress(id, copied, sum.Total, sum.Bytes)
+	sum := tr.sum
+	if sum.Total > 0 || sum.Transferred > 0 || sum.Done {
+		im.st.SetMailImportProgress(id, sum.Processed, sum.Transferred, sum.Total, sum.Bytes)
 	}
 	return sum
 }
@@ -272,49 +275,90 @@ func (im *Importer) Log(id int64) string { return im.tail(id, 48<<10) }
 
 // Summary es lo que se saca del log de imapsync.
 type Summary struct {
-	Processed   int64 // correos del origen ya revisados (copiados o saltados)
+	Processed   int64 // correos del origen ya revisados (copiados o que ya estaban)
 	Total       int64 // correos en el origen
+	Transferred int64 // correos copiados (migrados)
+	Bytes       int64 // bytes copiados
+	ETA         int64 // segundos que estima imapsync para terminar
 	Done        bool  // apareció el resumen final
-	Transferred int64
-	Bytes       int64
 	Errors      int64
 }
 
 var (
-	etaRe         = regexp.MustCompile(`(\d+)/(\d+) msgs left`)
+	etaRe         = regexp.MustCompile(`ETA: .*\s(\d+) s\s+(\d+)/(\d+) msgs left`)
+	copiedRe      = regexp.MustCompile(`^msg .* copied to .*\s([\d.]+) (B|KiB|MiB|GiB|TiB) copied`)
 	nbMessagesRe  = regexp.MustCompile(`Host1 Nb messages:\s+(\d+) messages`)
-	transferredRe = regexp.MustCompile(`Messages transferred\s+:\s+(\d+)`)
-	bytesRe       = regexp.MustCompile(`Total bytes transferred\s+:\s+(\d+)`)
-	errorsRe      = regexp.MustCompile(`Detected (\d+) errors`)
+	transferredRe = regexp.MustCompile(`^Messages transferred\s+:\s+(\d+)`)
+	bytesRe       = regexp.MustCompile(`^Total bytes transferred\s+:\s+(\d+)`)
+	errorsRe      = regexp.MustCompile(`^Detected (\d+) errors`)
 )
 
-func lastInt(re *regexp.Regexp, s string, group int) (int64, bool) {
-	m := re.FindAllStringSubmatch(s, -1)
-	if len(m) == 0 {
-		return 0, false
-	}
-	n, err := strconv.ParseInt(m[len(m)-1][group], 10, 64)
-	return n, err == nil
+var units = map[string]float64{"B": 1, "KiB": 1 << 10, "MiB": 1 << 20, "GiB": 1 << 30, "TiB": 1 << 40}
+
+func atoi(s string) int64 { n, _ := strconv.ParseInt(s, 10, 64); return n }
+
+// logTracker procesa el log línea a línea y recuerda hasta dónde leyó, para no releer
+// un log de decenas de MB cada pocos segundos.
+type logTracker struct {
+	off     int64
+	partial string
+	sum     Summary
 }
 
-// ParseImportLog lee el avance ("ETA: …  12/340 msgs left") y el resumen final de imapsync.
-func ParseImportLog(s string) Summary {
-	var sum Summary
-	if left, ok := lastInt(etaRe, s, 1); ok {
-		sum.Total, _ = lastInt(etaRe, s, 2)
-		sum.Processed = sum.Total - left
-	} else if n, ok := lastInt(nbMessagesRe, s, 1); ok {
-		sum.Total = n
-	}
-	if n, ok := lastInt(transferredRe, s, 1); ok {
-		sum.Done, sum.Transferred = true, n
-		if sum.Total > 0 {
-			sum.Processed = sum.Total
+func (t *logTracker) line(l string) {
+	s := &t.sum
+	if m := copiedRe.FindStringSubmatch(l); m != nil {
+		s.Transferred++
+		if v, err := strconv.ParseFloat(m[1], 64); err == nil {
+			s.Bytes = int64(v * units[m[2]])
 		}
 	}
-	sum.Bytes, _ = lastInt(bytesRe, s, 1)
-	sum.Errors, _ = lastInt(errorsRe, s, 1)
-	return sum
+	if m := etaRe.FindStringSubmatch(l); m != nil {
+		s.ETA, s.Total = atoi(m[1]), atoi(m[3])
+		s.Processed = s.Total - atoi(m[2])
+		return
+	}
+	if m := nbMessagesRe.FindStringSubmatch(l); m != nil && s.Total == 0 {
+		s.Total = atoi(m[1])
+	} else if m := transferredRe.FindStringSubmatch(l); m != nil {
+		s.Done, s.Transferred, s.ETA = true, atoi(m[1]), 0
+		if s.Total > 0 {
+			s.Processed = s.Total
+		}
+	} else if m := bytesRe.FindStringSubmatch(l); m != nil {
+		s.Bytes = atoi(m[1])
+	} else if m := errorsRe.FindStringSubmatch(l); m != nil {
+		s.Errors = atoi(m[1])
+	}
+}
+
+// feed procesa texto nuevo; una línea a medio escribir queda pendiente para la próxima vez.
+func (t *logTracker) feed(b string) {
+	b = t.partial + b
+	lines := strings.Split(b, "\n")
+	t.partial = lines[len(lines)-1]
+	for _, l := range lines[:len(lines)-1] {
+		t.line(strings.TrimSuffix(l, "\r"))
+	}
+}
+
+func (t *logTracker) read(f *os.File) {
+	if _, err := f.Seek(t.off, io.SeekStart); err != nil {
+		return
+	}
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return
+	}
+	t.off += int64(len(b))
+	t.feed(string(b))
+}
+
+// ParseImportLog procesa un log completo (o un trozo) de imapsync.
+func ParseImportLog(s string) Summary {
+	var t logTracker
+	t.feed(s + "\n")
+	return t.sum
 }
 
 // exitMessage traduce los códigos de salida de imapsync.

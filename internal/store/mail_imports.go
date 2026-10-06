@@ -19,9 +19,10 @@ type MailImport struct {
 	SrcUser    string
 	Status     string
 	Error      string
-	Copied     int64 // mientras corre: correos revisados; al terminar: correos copiados
+	Processed  int64 // correos del origen ya revisados (copiados o que ya estaban en el buzón)
+	Copied     int64 // correos migrados (copiados al buzón)
 	Total      int64 // correos en el origen (0 = aún no se sabe)
-	Bytes      int64 // bytes copiados (se conoce al terminar)
+	Bytes      int64 // bytes migrados
 	StartedAt  time.Time
 	FinishedAt time.Time // cero mientras corre
 }
@@ -36,25 +37,33 @@ func (m *MailImport) Duration() time.Duration {
 	return end.Sub(m.StartedAt).Round(time.Second)
 }
 
-// Percent del avance (0 si todavía no se conoce el total).
+// Skipped: correos revisados que ya estaban en el buzón (no se copian de nuevo).
+func (m *MailImport) Skipped() int64 {
+	if n := m.Processed - m.Copied; n > 0 {
+		return n
+	}
+	return 0
+}
+
+// Percent del avance: correos revisados sobre el total del origen (0 si aún no se conoce).
 func (m *MailImport) Percent() int {
 	if m.Total <= 0 {
 		return 0
 	}
-	p := int(m.Copied * 100 / m.Total)
+	p := int(m.Processed * 100 / m.Total)
 	if p > 100 {
 		p = 100
 	}
 	return p
 }
 
-const importCols = `id, account_id, email, host, port, src_user, status, error, copied, total, bytes, started_at, finished_at`
+const importCols = `id, account_id, email, host, port, src_user, status, error, processed, copied, total, bytes, started_at, finished_at`
 
 func scanImport(row interface{ Scan(...any) error }) (*MailImport, error) {
 	var m MailImport
 	var started, finished int64
 	if err := row.Scan(&m.ID, &m.AccountID, &m.Email, &m.Host, &m.Port, &m.SrcUser, &m.Status, &m.Error,
-		&m.Copied, &m.Total, &m.Bytes, &started, &finished); err != nil {
+		&m.Processed, &m.Copied, &m.Total, &m.Bytes, &started, &finished); err != nil {
 		return nil, notFound(err)
 	}
 	m.StartedAt = time.Unix(started, 0)
@@ -73,8 +82,8 @@ func (s *Store) CreateMailImport(m *MailImport) (int64, error) {
 	return res.LastInsertId()
 }
 
-func (s *Store) SetMailImportProgress(id, copied, total, bytes int64) error {
-	_, err := s.db.Exec(`UPDATE mail_imports SET copied = ?, total = ?, bytes = ? WHERE id = ?`, copied, total, bytes, id)
+func (s *Store) SetMailImportProgress(id, processed, copied, total, bytes int64) error {
+	_, err := s.db.Exec(`UPDATE mail_imports SET processed = ?, copied = ?, total = ?, bytes = ? WHERE id = ?`, processed, copied, total, bytes, id)
 	return err
 }
 

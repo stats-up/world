@@ -151,6 +151,9 @@ var migrations = []string{
 		finished_at INTEGER NOT NULL DEFAULT 0
 	);
 	CREATE INDEX mail_imports_account ON mail_imports (account_id, id DESC);`,
+
+	// 6: avance separado en revisados (incluye los que ya estaban) y migrados.
+	`ALTER TABLE mail_imports ADD COLUMN processed INTEGER NOT NULL DEFAULT 0;`,
 }
 
 func (s *Store) migrate() error {

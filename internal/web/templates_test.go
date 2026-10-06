@@ -50,8 +50,8 @@ func TestMailPagesRender(t *testing.T) {
 	acc := mail.Account{ID: "a", Name: "test", Email: "test@prueba.frikiforja.cl", Quota: 5 << 30, Used: 1 << 30, Aliases: []string{"info"}}
 	recs := []mail.Record{{Name: "prueba.frikiforja.cl", Type: "MX", Value: "10 mx.statsup.cl", Status: "ok"},
 		{Name: "prueba.frikiforja.cl", Type: "TXT", Value: "v=spf1 mx -all", Status: "distinto", Found: "v=spf1 ~all"}}
-	running := &store.MailImport{ID: 7, AccountID: "a", Host: "38.18.230.11", Port: 993, SrcUser: acc.Email, Status: store.ImportRunning, Copied: 30, Total: 40, StartedAt: time.Now()}
-	done := &store.MailImport{ID: 6, AccountID: "a", Host: "38.18.230.11", Port: 993, SrcUser: acc.Email, Status: store.ImportSuccess, Copied: 40, Total: 40, Bytes: 3 << 20,
+	running := &store.MailImport{ID: 7, AccountID: "a", Host: "38.18.230.11", Port: 993, SrcUser: acc.Email, Status: store.ImportRunning, Processed: 32, Copied: 30, Total: 40, StartedAt: time.Now()}
+	done := &store.MailImport{ID: 6, AccountID: "a", Host: "38.18.230.11", Port: 993, SrcUser: acc.Email, Status: store.ImportSuccess, Processed: 40, Copied: 40, Total: 40, Bytes: 3 << 20,
 		StartedAt: time.Now().Add(-time.Hour), FinishedAt: time.Now()}
 	pages := map[string]data{
 		"mail":                {"Domains": []mail.Domain{*dom}, "Hostname": "mx.statsup.cl"},
@@ -83,10 +83,11 @@ func TestMailPagesRender(t *testing.T) {
 			`href="/mail/domains/c/accounts/new"`:                 "mail_domain",
 			`hx-get="/mail/domains/c/accounts/a/import/7"`:        "mail_account#import",
 			`action="/mail/domains/c/accounts/a/import/7/cancel"`: "mail_account#import",
-			"30 de 40 correos revisados":                          "mail_account#import",
+			"80% <small>32 de 40</small>":                         "mail_account#import",
 			`action="/mail/domains/c/accounts/a/import"`:          "mail_account#synced",
+			`hx-post="/mail/domains/c/accounts/a/import/test"`:    "mail_account#synced",
 			"Sincronizar de nuevo":                                "mail_account#synced",
-			"40 correos copiados (3 MB)":                          "mail_account#synced",
+			"40 <small>3 MB</small>":                              "mail_account#synced",
 			`value="38.18.230.11"`:                                "mail_account#synced",
 		} {
 			if in == name && !strings.Contains(b.String(), want) {
