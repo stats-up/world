@@ -34,8 +34,8 @@
             <div class="ellipsis"><a href="/mail/domains/{{$.Domain.ID}}/accounts/{{.ID}}">{{.Email}}</a>{{with .Description}}<small>{{.}}</small>{{end}}</div></div></td>
           <td class="small hide-sm">{{range $i, $a := .Aliases}}{{if $i}}, {{end}}{{$a}}{{else}}<span class="muted">—</span>{{end}}</td>
           <td class="small quota">
-            {{if .Quota}}{{bar .UsedPercent}}{{gb .Used}} de {{gb .Quota}}
-            {{else}}{{gb .Used}} <span class="muted">· sin límite</span>{{end}}
+            {{if .Quota}}{{bar .UsedPercent}}{{size .Used}} de {{gb .Quota}}
+            {{else}}{{size .Used}} <span class="muted">· sin límite</span>{{end}}
           </td>
           <td class="num muted">{{icon "chevron"}}</td>
         </tr>

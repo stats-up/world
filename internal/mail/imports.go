@@ -83,7 +83,8 @@ func importArgs(req ImportRequest, id int64) []string {
 	return append(args,
 		"--host2", ContainerName, "--port2", "993", "--ssl2", "--user2", req.Email+"%"+AdminUser,
 		"--automap", // Enviados, Papelera, etc. van a las carpetas equivalentes de Stalwart
-		"--logdir", "/logs", "--logfile", fmt.Sprintf("import-%d.log", id),
+		// --log es obligatorio: dentro de Docker imapsync no escribe el log si no se pide.
+		"--log", "--logdir", "/logs", "--logfile", fmt.Sprintf("import-%d.log", id),
 		"--noreleasecheck", "--no-modulesversion",
 	)
 }

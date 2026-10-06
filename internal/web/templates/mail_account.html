@@ -5,7 +5,7 @@
   <div class="page-title">
     <span class="avatar">{{initial .Account.Name}}</span>
     <div><h1>{{.Account.Email}}</h1>
-      <p class="sub">{{with .Account.Description}}{{.}} · {{end}}{{gb .Account.Used}} usados{{if .Account.Quota}} de {{gb .Account.Quota}}{{end}}</p></div>
+      <p class="sub">{{with .Account.Description}}{{.}} · {{end}}{{size .Account.Used}} usados{{if .Account.Quota}} de {{gb .Account.Quota}}{{end}}</p></div>
   </div>
 </div>
 
@@ -15,7 +15,7 @@
     <h2>Datos</h2>
     <label>Nombre o descripción<input name="description" value="{{.Account.Description}}"></label>
     <label>Cuota (GB)<input name="quota_gb" value="{{.QuotaGB}}" placeholder="sin límite" inputmode="decimal">
-      <small>Usado: {{gb .Account.Used}}. Vacío o 0 = sin límite.</small></label>
+      <small>Usado: {{size .Account.Used}}. Vacío o 0 = sin límite.</small></label>
     {{if .Account.Quota}}{{bar .Account.UsedPercent}}{{end}}
     <label>Alias<input name="aliases" value="{{.Aliases}}" placeholder="contacto, info">
       <small>Direcciones de {{.Domain.Name}} que también llegan a este buzón, separadas por coma.</small></label>
@@ -88,7 +88,7 @@
   <p class="muted small">Se borran el buzón y <strong>todos sus correos y adjuntos</strong>. No se puede deshacer.</p>
   <form method="post" action="/mail/domains/{{.Domain.ID}}/accounts/{{.Account.ID}}/delete" class="inline-form"
         data-confirm="¿Eliminar {{.Account.Email}}?"
-        data-confirm-text="Se borran el buzón y todos sus correos y adjuntos ({{gb .Account.Used}}). No se puede deshacer."
+        data-confirm-text="Se borran el buzón y todos sus correos y adjuntos ({{size .Account.Used}}). No se puede deshacer."
         data-confirm-button="Sí, eliminar el buzón">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
     <input name="confirm" placeholder="Escribe {{.Account.Email}} para confirmar" required autocomplete="off">
