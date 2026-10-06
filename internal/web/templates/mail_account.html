@@ -42,6 +42,42 @@
   </section>
 </div>
 
+<section class="card stack" id="importar">
+  <h2>{{icon "inbox"}} Importar correos desde otro servidor</h2>
+  <p class="small muted">Copia todas las carpetas (Recibidos, Enviados, etc.) desde el servidor anterior, por ejemplo cPanel, mientras el dominio sigue en migración.
+  Puedes repetirla las veces que quieras, antes y después de cambiar el MX: solo copia lo nuevo, sin duplicar. No borra nada en el origen.</p>
+  {{with .Import}}
+    {{template "mail_import" .}}
+  {{else}}
+    {{with .LastImport}}{{template "mail_import" .}}<hr>{{end}}
+    <form method="post" action="/mail/domains/{{.Domain.ID}}/accounts/{{.Account.ID}}/import" class="stack" autocomplete="off">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="cols">
+        <label>Servidor de origen<input name="host" value="{{.ImportForm.host}}" required>
+          <small>El servidor IMAP anterior (en cPanel suele ser <code>mail.{{.Domain.Name}}</code> o la IP del hosting).</small></label>
+        <label>Puerto<select name="port">
+          <option value="993"{{if eq .ImportForm.port "993"}} selected{{end}}>993 · SSL</option>
+          <option value="143"{{if eq .ImportForm.port "143"}} selected{{end}}>143 · STARTTLS</option>
+        </select></label>
+      </div>
+      <div class="cols">
+        <label>Usuario en el origen<input name="user" value="{{.ImportForm.user}}" required></label>
+        <label>Contraseña en el origen<input type="password" name="password" required autocomplete="new-password">
+          <small>Se usa solo mientras dura la copia; world no la guarda.</small></label>
+      </div>
+      <div class="actions"><button type="submit" class="primary">{{icon "refresh"}} {{if .Imports}}Sincronizar de nuevo{{else}}Importar correos{{end}}</button></div>
+    </form>
+  {{end}}
+  {{if and .Imports (gt (len .Imports) 1)}}
+  <details><summary class="small muted">Importaciones anteriores</summary>
+    <table class="table">
+      <thead><tr><th>Fecha</th><th>Estado</th><th>Origen</th><th>Copiados</th></tr></thead>
+      <tbody>{{range .Imports}}<tr><td>{{ago .StartedAt}}</td><td>{{template "import_status" .Status}}</td><td><code>{{.SrcUser}}</code> · {{.Host}}</td><td>{{.Copied}} · {{size .Bytes}}</td></tr>{{end}}</tbody>
+    </table>
+  </details>
+  {{end}}
+</section>
+
 <section class="card danger">
   <h2>{{icon "trash"}} Eliminar buzón</h2>
   <p class="muted small">Se borran el buzón y <strong>todos sus correos y adjuntos</strong>. No se puede deshacer.</p>

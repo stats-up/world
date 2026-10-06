@@ -1,0 +1,30 @@
+{{define "import_status"}}{{if eq . "running"}}<span class="badge warn">en curso</span>{{else if eq . "success"}}<span class="badge ok">completada</span>{{else if eq . "canceled"}}<span class="badge muted">cancelada</span>{{else}}<span class="badge err">con problemas</span>{{end}}{{end}}
+
+{{define "mail_import"}}
+<div id="mail-import" class="stack"{{if .Import.Running}} hx-get="{{.Base}}/import/{{.Import.ID}}" hx-trigger="every 3s" hx-swap="outerHTML"{{end}}>
+  <div class="row">
+    <div>{{template "import_status" .Import.Status}} <span class="muted">desde <code>{{.Import.SrcUser}}</code> en <code>{{.Import.Host}}</code> · {{.Import.Duration}}</span></div>
+    {{if .Import.Running}}
+    <form method="post" action="{{.Base}}/import/{{.Import.ID}}/cancel"
+          data-confirm="¿Cancelar la importación?"
+          data-confirm-text="Se detiene la copia desde {{.Import.Host}}. Los correos ya copiados quedan en el buzón y puedes retomarla después con «Sincronizar de nuevo»."
+          data-confirm-button="Sí, cancelar">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <button type="submit" class="sm danger">{{icon "stop"}} Cancelar</button>
+    </form>
+    {{end}}
+  </div>
+  {{if .Import.Running}}
+    {{if .Import.Total}}
+      {{progress .Import.Percent}}
+      <p class="small muted">{{.Import.Copied}} de {{.Import.Total}} correos revisados ({{.Import.Percent}}%). Los que ya estaban en el buzón se saltan.</p>
+    {{else}}
+      <p class="small muted">Conectando y contando las carpetas del origen…</p>
+    {{end}}
+  {{else if eq .Import.Status "success"}}
+    <p class="small">{{.Import.Copied}} correos copiados ({{size .Import.Bytes}}){{if .Import.Total}} · {{.Import.Total}} en el origen{{end}}.</p>
+  {{end}}
+  {{with .Import.Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+  {{if .Log}}<details{{if .Import.Running}} open{{end}}><summary class="small muted">Log de imapsync</summary><pre class="log short">{{.Log}}</pre></details>{{end}}
+</div>
+{{end}}

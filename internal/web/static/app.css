@@ -334,6 +334,7 @@ pre.log {
   background: var(--log-bg); color: var(--log-text); padding: 1rem 1.1rem; border-radius: var(--radius-sm);
   font: 12.5px/1.5 var(--mono); max-height: 65vh; overflow: auto; white-space: pre-wrap; word-break: break-word; margin-top: .5rem;
 }
+pre.log.short { max-height: 20rem; }
 details > summary { cursor: pointer; }
 .qr { background: #fff; padding: 10px; border-radius: var(--radius-sm); }
 .secret-box { font-family: var(--mono); font-size: 1.2rem; letter-spacing: .04em;

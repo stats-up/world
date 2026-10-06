@@ -35,3 +35,25 @@ func TestGeneratePassword(t *testing.T) {
 		t.Fatalf("%q %q", a, b)
 	}
 }
+
+func TestLastLines(t *testing.T) {
+	if got := lastLines("a\nb\nc\n", 2); got != "b\nc" {
+		t.Fatalf("got %q", got)
+	}
+	if got := lastLines("a\nb", 5); got != "a\nb" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestImportValidation(t *testing.T) {
+	for h, ok := range map[string]bool{"38.18.230.11": true, "mail.statsup.cl": true, "localhost": false, "a b": false, "": false} {
+		if validImportHost(h) != ok {
+			t.Errorf("host %q", h)
+		}
+	}
+	for u, ok := range map[string]bool{"fernando.dc@statsup.cl": true, "a b": false, "": false, "x\ny": false} {
+		if validImportUser(u) != ok {
+			t.Errorf("usuario %q", u)
+		}
+	}
+}

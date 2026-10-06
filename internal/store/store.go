@@ -132,6 +132,25 @@ var migrations = []string{
 		PRIMARY KEY (key, res, ts)
 	) WITHOUT ROWID;
 	CREATE INDEX metrics_ctr_ts ON metrics_ctr (res, ts);`,
+
+	// 5: importación de correos desde otro servidor (imapsync) hacia un buzón de Stalwart.
+	// La contraseña de origen no se guarda: solo viaja al contenedor mientras corre.
+	`CREATE TABLE mail_imports (
+		id          INTEGER PRIMARY KEY,
+		account_id  TEXT    NOT NULL,
+		email       TEXT    NOT NULL,
+		host        TEXT    NOT NULL,
+		port        INTEGER NOT NULL,
+		src_user    TEXT    NOT NULL,
+		status      TEXT    NOT NULL,
+		error       TEXT    NOT NULL DEFAULT '',
+		copied      INTEGER NOT NULL DEFAULT 0,
+		total       INTEGER NOT NULL DEFAULT 0,
+		bytes       INTEGER NOT NULL DEFAULT 0,
+		started_at  INTEGER NOT NULL,
+		finished_at INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE INDEX mail_imports_account ON mail_imports (account_id, id DESC);`,
 }
 
 func (s *Store) migrate() error {

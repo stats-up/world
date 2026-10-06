@@ -340,7 +340,9 @@ func (s *Server) mailAccountShow(w http.ResponseWriter, r *http.Request) {
 	if a.Quota > 0 {
 		quota = strconv.FormatFloat(float64(a.Quota)/(1<<30), 'f', -1, 64)
 	}
-	s.render(w, r, "mail_account", data{"Domain": d, "Account": a, "QuotaGB": quota, "Aliases": strings.Join(a.Aliases, ", "), "Hostname": s.serverHostname()})
+	dd := data{"Domain": d, "Account": a, "QuotaGB": quota, "Aliases": strings.Join(a.Aliases, ", "), "Hostname": s.serverHostname()}
+	s.addImports(r, dd, d, a)
+	s.render(w, r, "mail_account", dd)
 }
 
 func (s *Server) mailAccountUpdate(w http.ResponseWriter, r *http.Request) {

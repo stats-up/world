@@ -48,6 +48,7 @@ type Server struct {
 	proxy   *proxy.Manager
 	mail    *mail.Manager
 	mailAPI *mail.Client
+	imports *mail.Importer
 	mon     *monitor.Monitor
 	version string
 
@@ -59,7 +60,9 @@ type Server struct {
 func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, poller *deploy.Poller, cron *deploy.Cron, px *proxy.Manager, mx *mail.Manager, mon *monitor.Monitor, version string) (*Server, error) {
 	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, poller: poller, cron: cron, proxy: px, mail: mx, mon: mon, version: version,
 		pages: map[string]*template.Template{}, limiter: newLimiter(10, 15*time.Minute)}
-	s.mailAPI = mail.NewClient(dc, func() string { return mail.LoadSettings(st, box).AdminSecret })
+	adminSecret := func() string { return mail.LoadSettings(st, box).AdminSecret }
+	s.mailAPI = mail.NewClient(dc, adminSecret)
+	s.imports = mail.NewImporter(dc, cfg, st, adminSecret)
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}
@@ -86,6 +89,8 @@ var funcs = template.FuncMap{
 	"icon": icon,
 	// bar dibuja una barra de porcentaje en SVG (la CSP no permite style="width:…").
 	"bar": func(pct int) template.HTML { return monBar{Pct: float64(pct), Level: level(float64(pct))}.Bar() },
+	// progress: barra de avance (siempre en color "ok": acercarse al 100% es bueno).
+	"progress": func(pct int) template.HTML { return monBar{Pct: float64(pct), Level: "ok"}.Bar() },
 	// navOn marca la sección activa del menú ("/" solo coincide con el dashboard y los sitios).
 	"navOn": func(path, prefix string) bool {
 		if prefix == "/" {
@@ -98,6 +103,15 @@ var funcs = template.FuncMap{
 			return strings.ToUpper(string(r))
 		}
 		return "?"
+	},
+	"size": func(b int64) string {
+		switch {
+		case b >= 1<<30:
+			return strconv.FormatFloat(float64(b)/(1<<30), 'f', 1, 64) + " GB"
+		case b >= 1<<20:
+			return strconv.FormatFloat(float64(b)/(1<<20), 'f', 0, 64) + " MB"
+		}
+		return strconv.FormatFloat(float64(b)/(1<<10), 'f', 0, 64) + " KB"
 	},
 	"gb": func(b int64) string { return strconv.FormatFloat(float64(b)/(1<<30), 'f', 1, 64) + " GB" },
 	"short": func(s string) string {
@@ -177,6 +191,9 @@ func (s *Server) Handler() http.Handler {
 	priv("POST /mail/domains/{id}/accounts/{aid}", s.mailAccountUpdate)
 	priv("POST /mail/domains/{id}/accounts/{aid}/password", s.mailAccountPassword)
 	priv("POST /mail/domains/{id}/accounts/{aid}/delete", s.mailAccountDelete)
+	priv("POST /mail/domains/{id}/accounts/{aid}/import", s.mailImportStart)
+	priv("GET /mail/domains/{id}/accounts/{aid}/import/{iid}", s.mailImportStatus)
+	priv("POST /mail/domains/{id}/accounts/{aid}/import/{iid}/cancel", s.mailImportCancel)
 	priv("GET /monitor", s.monitorPage)
 	priv("GET /monitor/host", s.monitorHost)
 	priv("GET /profile", s.profile)

@@ -113,6 +113,7 @@ func serve(cfg config.Config) error {
 	})
 	go mon.Run(ctx)
 	go mx.EnsureLoop(ctx, func() mail.Settings { return mail.LoadSettings(st, box) })
+	go srv.ResumeImports(ctx)
 
 	httpSrv := &http.Server{
 		Addr:              cfg.Listen,
