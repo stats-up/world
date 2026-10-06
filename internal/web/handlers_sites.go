@@ -47,7 +47,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	d := data{"Sites": sites, "PanelDomain": s.st.Setting("panel_domain"), "Health": s.healthStatus(r.Context())}
+	d := data{"Sites": sites, "PanelDomain": s.st.Setting("panel_domain"), "Health": s.healthStatus(r.Context()), "Mon": s.monitorView(true)}
 	if info, err := s.dc.Info(ctx); err == nil {
 		d["Docker"] = info
 		cs, _ := s.engine.Containers(ctx)
@@ -302,7 +302,7 @@ func (s *Server) siteShow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	deps, _ := s.st.Deployments(site.ID, 15)
-	d := data{"Site": site, "Deployments": deps}
+	d := data{"Site": site, "Deployments": deps, "Metrics": s.siteMetrics(site, r.URL.Query().Get("range"))}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 	if cs, err := s.engine.Containers(ctx); err == nil {

@@ -153,6 +153,21 @@ En cada sitio puedes activar **"Deploy automático"**. Con eso, el panel consult
 - Si el deploy falla antes de clonar (por ejemplo, porque falta la deploy key), se reintenta como máximo cada 10 minutos.
 - En la tabla de deploys del sitio, la columna **Origen** indica si fue manual o automático.
 
+## Monitoreo de recursos
+
+Cada 30 segundos el panel mide el servidor y cada contenedor:
+
+- **Servidor**: CPU, RAM, swap, disco y carga, leídos de `/proc`.
+- **Sitios y servicios** (Traefik y Stalwart): CPU, RAM frente a su límite, red, reinicios y procesos terminados por falta de memoria (OOM). Los datos vienen de la API de estadísticas de Docker y del cgroup del contenedor.
+
+Dónde verlo:
+
+- **Dashboard**: barras del servidor, que se actualizan solas, y columnas de CPU y RAM por sitio con un minigráfico de las últimas 24 h. La tabla se ordena haciendo clic en el encabezado.
+- **Monitoreo** (menú superior): historial del servidor (24 h, 7 días o 30 días) y una tabla con todos los sitios y servicios.
+- **Página del sitio**: gráficos de CPU, RAM y red, con la línea del límite del sitio y marcas en cada deploy.
+
+La CPU se muestra en **% del servidor completo**: 100 % significa todas las vCPU ocupadas. Si un sitio tiene un límite de CPU, su línea aparece en el gráfico. Las muestras se guardan en SQLite: detalle por minuto durante 48 h y resumen cada 15 min durante 30 días. Los gráficos son SVG generados por el panel, sin librerías externas.
+
 ## Monitoreo: `/health`
 
 El panel expone `https://tu-panel/health` (sin login) con el estado de los procesos periódicos:
@@ -253,7 +268,9 @@ sudo rm -rf /etc/systemd/system/world*.service /etc/systemd/system/world-update.
   - [ ] Aplicar desde world la configuración base de Stalwart (bucket, puerto 587, certificados), hoy hecha a mano por la API
   - [ ] Estado del correo: cola de salida, rebotes y uso del bucket; reenvíos
 - [ ] **Fase 3:** crons HTTP hacia APIs con historial, y bases de datos y usuarios en MySQL/MariaDB (RDS) desde el panel
-- [ ] **Fase 4:** monitoreo de recursos, registro de caídas con diagnóstico, alertas (email/Telegram) y recomendaciones de recursos
+- [ ] **Fase 4:** monitoreo, caídas, alertas y recomendaciones
+  - [x] Monitoreo de recursos del servidor y por sitio (CPU, RAM, disco, red, reinicios, OOM) con historial de 30 días
+  - [ ] Registro de caídas con diagnóstico, alertas (email/Telegram) y recomendaciones de recursos
 
 ## Desarrollo
 

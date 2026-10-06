@@ -1,0 +1,18 @@
+{{define "monitor_host"}}<section class="card monitor" id="monitor-host" hx-get="/monitor/host" hx-trigger="every 30s" hx-swap="outerHTML">
+  <div class="row">
+    <h2>Servidor</h2>
+    <a class="small" href="/monitor">Historial →</a>
+  </div>
+  {{if .Ready}}
+  <div class="meters">
+    {{range .Bars}}<div class="meter"><div class="meter-head"><span>{{.Label}}</span><strong class="{{.Level}}">{{.Text}}</strong></div>{{.Bar}}</div>{{end}}
+    {{with .Load}}<div class="meter"><div class="meter-head"><span>Carga (1 min)</span><strong>{{.}}</strong></div></div>{{end}}
+  </div>
+  {{with .Services}}<p class="muted small services">
+    {{range .}}<span>{{.Name}}: <strong>{{.CPUText}}</strong> CPU · <strong>{{.MemText}}</strong>{{with .LimitText}} de {{.}}{{end}}{{if .OOMKills}} <span class="badge err" title="Procesos terminados por falta de memoria desde que inició el contenedor">{{.OOMKills}} sin memoria</span>{{end}}</span>{{end}}
+  </p>{{end}}
+  {{with .Err}}<p class="muted small">⚠ {{.}}</p>{{end}}
+  {{else}}
+  <p class="muted small">{{with .Err}}⚠ {{.}}{{else}}Tomando la primera muestra…{{end}}</p>
+  {{end}}
+</section>{{end}}

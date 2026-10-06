@@ -101,6 +101,37 @@ var migrations = []string{
 	ALTER TABLE sites ADD COLUMN last_cron_exit INTEGER NOT NULL DEFAULT 0;
 	ALTER TABLE sites ADD COLUMN last_cron_ms INTEGER NOT NULL DEFAULT 0;
 	ALTER TABLE sites ADD COLUMN last_cron_output TEXT NOT NULL DEFAULT '';`,
+
+	// 4: monitoreo. res = segundos que cubre cada fila (60 = detalle, 900 = resumen de 15 min).
+	`CREATE TABLE metrics_host (
+		res        INTEGER NOT NULL,
+		ts         INTEGER NOT NULL,
+		cpu        REAL    NOT NULL,
+		mem_used   INTEGER NOT NULL,
+		mem_total  INTEGER NOT NULL,
+		swap_used  INTEGER NOT NULL,
+		swap_total INTEGER NOT NULL,
+		disk_used  INTEGER NOT NULL,
+		disk_total INTEGER NOT NULL,
+		load1      REAL    NOT NULL,
+		PRIMARY KEY (res, ts)
+	) WITHOUT ROWID;
+	CREATE TABLE metrics_ctr (
+		key       TEXT    NOT NULL,
+		res       INTEGER NOT NULL,
+		ts        INTEGER NOT NULL,
+		cpu       REAL    NOT NULL,
+		mem       INTEGER NOT NULL,
+		mem_limit INTEGER NOT NULL,
+		net_rx    REAL    NOT NULL,
+		net_tx    REAL    NOT NULL,
+		blk_r     REAL    NOT NULL,
+		blk_w     REAL    NOT NULL,
+		restarts  INTEGER NOT NULL,
+		oom       INTEGER NOT NULL,
+		PRIMARY KEY (key, res, ts)
+	) WITHOUT ROWID;
+	CREATE INDEX metrics_ctr_ts ON metrics_ctr (res, ts);`,
 }
 
 func (s *Store) migrate() error {

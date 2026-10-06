@@ -1,0 +1,27 @@
+{{define "title"}}Monitoreo{{end}}
+{{define "head"}}<script src="/static/sort.js" defer></script>{{end}}
+{{define "content"}}
+<div class="row">
+  <h1>Monitoreo</h1>
+  <nav class="tabs">{{range .Ranges}}<a href="/monitor?range={{.Key}}"{{if eq .Key $.Range.Key}} class="active" aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
+</div>
+
+{{template "monitor_host" .Mon}}
+
+<section class="card">
+  <h2>Historial del servidor · {{.Range.Label}}</h2>
+  {{with .Error}}<div class="flash error">{{.}}</div>{{end}}
+  {{with .Charts}}
+  <div class="charts">
+    {{range .}}<figure><figcaption>{{.Title}}</figcaption>{{.SVG}}<p class="legend">{{range .Series}}<span class="{{.Class}}">{{.Name}}</span>{{end}}{{if .Limit}}<span class="lim">total</span>{{end}}</p></figure>{{end}}
+  </div>
+  {{else}}
+  <p class="muted">Aún no hay datos para este período: las muestras se toman cada 30 s{{if ne .Range.Key "24h"}} y se resumen cada 15 min{{end}}.</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <h2>Sitios y servicios ahora</h2>
+  {{template "usage_table" .Mon}}
+</section>
+{{end}}

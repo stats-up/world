@@ -21,6 +21,7 @@ import (
 	"world/internal/deploy"
 	"world/internal/docker"
 	"world/internal/mail"
+	"world/internal/monitor"
 	"world/internal/proxy"
 	"world/internal/secret"
 	"world/internal/store"
@@ -47,6 +48,7 @@ type Server struct {
 	proxy   *proxy.Manager
 	mail    *mail.Manager
 	mailAPI *mail.Client
+	mon     *monitor.Monitor
 	version string
 
 	pages    map[string]*template.Template
@@ -54,8 +56,8 @@ type Server struct {
 	limiter  *limiter
 }
 
-func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, poller *deploy.Poller, cron *deploy.Cron, px *proxy.Manager, mx *mail.Manager, version string) (*Server, error) {
-	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, poller: poller, cron: cron, proxy: px, mail: mx, version: version,
+func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, poller *deploy.Poller, cron *deploy.Cron, px *proxy.Manager, mx *mail.Manager, mon *monitor.Monitor, version string) (*Server, error) {
+	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, poller: poller, cron: cron, proxy: px, mail: mx, mon: mon, version: version,
 		pages: map[string]*template.Template{}, limiter: newLimiter(10, 15*time.Minute)}
 	s.mailAPI = mail.NewClient(dc, func() string { return mail.LoadSettings(st, box).AdminSecret })
 	if err := s.parseTemplates(); err != nil {
@@ -153,6 +155,8 @@ func (s *Server) Handler() http.Handler {
 	priv("POST /mail/domains/{id}/accounts/{aid}", s.mailAccountUpdate)
 	priv("POST /mail/domains/{id}/accounts/{aid}/password", s.mailAccountPassword)
 	priv("POST /mail/domains/{id}/accounts/{aid}/delete", s.mailAccountDelete)
+	priv("GET /monitor", s.monitorPage)
+	priv("GET /monitor/host", s.monitorHost)
 	priv("GET /profile", s.profile)
 	priv("POST /profile/password", s.profilePassword)
 	priv("POST /profile/2fa/start", s.mfaStart)

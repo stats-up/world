@@ -408,3 +408,47 @@ func (c *Client) NetworkEnsure(ctx context.Context, name string) error {
 	body := map[string]any{"Name": name, "Driver": "bridge", "CheckDuplicate": true}
 	return c.call(ctx, "POST", "/networks/create", nil, body, nil)
 }
+
+// --- Métricas ---
+
+// Stats es la parte de /containers/{id}/stats que usa el monitoreo.
+type Stats struct {
+	Read     time.Time `json:"read"`
+	CPUStats struct {
+		CPUUsage struct {
+			TotalUsage uint64 `json:"total_usage"`
+		} `json:"cpu_usage"`
+		SystemUsage uint64 `json:"system_cpu_usage"`
+		OnlineCPUs  int    `json:"online_cpus"`
+	} `json:"cpu_stats"`
+	MemoryStats struct {
+		Usage uint64            `json:"usage"`
+		Limit uint64            `json:"limit"`
+		Stats map[string]uint64 `json:"stats"`
+	} `json:"memory_stats"`
+	Networks map[string]struct {
+		RxBytes uint64 `json:"rx_bytes"`
+		TxBytes uint64 `json:"tx_bytes"`
+	} `json:"networks"`
+	BlkioStats struct {
+		IOServiceBytesRecursive []struct {
+			Op    string `json:"op"`
+			Value uint64 `json:"value"`
+		} `json:"io_service_bytes_recursive"`
+	} `json:"blkio_stats"`
+}
+
+// MemUsed descuenta la caché de archivos (igual que `docker stats`).
+func (s *Stats) MemUsed() uint64 {
+	u := s.MemoryStats.Usage
+	if c, ok := s.MemoryStats.Stats["inactive_file"]; ok && c < u {
+		return u - c
+	}
+	return u
+}
+
+// ContainerStats toma una sola muestra (sin esperar la segunda lectura de Docker).
+func (c *Client) ContainerStats(ctx context.Context, id string) (*Stats, error) {
+	var st Stats
+	return &st, c.call(ctx, "GET", "/containers/"+id+"/stats", url.Values{"stream": {"0"}, "one-shot": {"1"}}, nil, &st)
+}

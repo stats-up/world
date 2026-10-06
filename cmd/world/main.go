@@ -18,6 +18,7 @@ import (
 	"world/internal/deploy"
 	"world/internal/docker"
 	"world/internal/mail"
+	"world/internal/monitor"
 	"world/internal/proxy"
 	"world/internal/secret"
 	"world/internal/store"
@@ -96,7 +97,8 @@ func serve(cfg config.Config) error {
 	engine := deploy.New(cfg, st, dc, box)
 	poller := deploy.NewPoller(engine, st, time.Minute)
 	cron := deploy.NewCron(engine, st, time.Minute)
-	srv, err := web.New(cfg, st, dc, box, engine, poller, cron, px, mx, version)
+	mon := monitor.New(dc, st)
+	srv, err := web.New(cfg, st, dc, box, engine, poller, cron, px, mx, mon, version)
 	if err != nil {
 		return err
 	}
@@ -109,6 +111,7 @@ func serve(cfg config.Config) error {
 	go px.EnsureLoop(ctx, func() (string, string) {
 		return st.Setting("acme_email"), st.Setting("panel_domain")
 	})
+	go mon.Run(ctx)
 	go mx.EnsureLoop(ctx, func() mail.Settings { return mail.LoadSettings(st, box) })
 
 	httpSrv := &http.Server{

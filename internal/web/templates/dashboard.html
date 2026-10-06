@@ -1,4 +1,5 @@
 {{define "title"}}Sitios{{end}}
+{{define "head"}}<script src="/static/sort.js" defer></script>{{end}}
 {{define "content"}}
 {{if .DockerError}}
 <div class="flash error">No se pudo conectar con Docker: {{.DockerError}}</div>
@@ -26,6 +27,8 @@
 </section>
 {{end}}
 
+{{with .Mon}}{{template "monitor_host" .}}{{end}}
+
 {{if not .PanelDomain}}
 <div class="flash info">El panel aún no tiene dominio y se está usando sin HTTPS. Configúralo en <a href="/settings">Ajustes</a>.</div>
 {{end}}
@@ -36,15 +39,19 @@
 </div>
 
 {{if .Sites}}
-<table class="table">
-  <thead><tr><th>Nombre</th><th>Dominios</th><th>Tipo</th><th>Estado</th></tr></thead>
+<table class="table sortable sites">
+  <thead><tr><th data-sort="text">Nombre</th><th>Dominios</th><th data-sort="text">Tipo</th><th data-sort="text">Estado</th><th data-sort="num">CPU · 24 h</th><th data-sort="num">RAM · 24 h</th></tr></thead>
   <tbody>
-  {{range .Sites}}
+  {{range $site := .Sites}}
     <tr>
       <td><a href="/sites/{{.ID}}"><strong>{{.Name}}</strong></a></td>
       <td>{{range .Domains}}<a href="https://{{.}}" target="_blank" rel="noopener">{{.}}</a><br>{{else}}<span class="muted">—</span>{{end}}</td>
-      <td>{{.Kind}}</td>
-      <td>{{if $.Containers}}{{template "site_state" (index $.Containers .Name)}}{{else}}<span class="muted">—</span>{{end}}</td>
+      <td data-v="{{.Kind}}">{{.Kind}}</td>
+      <td data-v="{{with $.Containers}}{{(index . $site.Name).State}}{{end}}">{{if $.Containers}}{{template "site_state" (index $.Containers .Name)}}{{else}}<span class="muted">—</span>{{end}}</td>
+      {{with $.Mon}}{{with index .Sites $site.Name}}
+      <td data-v="{{.CPU}}"><strong>{{.CPUText}}</strong>{{.CPUSpark}}</td>
+      <td data-v="{{.Mem}}"><strong>{{.MemText}}</strong>{{with .LimitText}} <span class="muted small">de {{.}}</span>{{end}}{{if .OOMKills}} <span class="badge err" title="Procesos terminados por falta de memoria desde que inició el contenedor">{{.OOMKills}} sin memoria</span>{{end}}{{.MemSpark}}</td>
+      {{else}}<td data-v="-1"><span class="muted">—</span></td><td data-v="-1"><span class="muted">—</span></td>{{end}}{{else}}<td></td><td></td>{{end}}
     </tr>
   {{end}}
   </tbody>

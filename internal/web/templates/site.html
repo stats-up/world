@@ -66,6 +66,28 @@
 </section>
 {{end}}
 
+<section class="card" id="uso">
+  <div class="row">
+    <h2>Uso de recursos</h2>
+    <nav class="tabs">{{range .Metrics.Ranges}}<a href="/sites/{{$.Site.ID}}?range={{.Key}}#uso"{{if eq .Key $.Metrics.Range.Key}} class="active" aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
+  </div>
+  {{with .Metrics}}
+  {{if .HasNow}}<div class="stats">
+    <div class="stat"><span>CPU ahora</span><strong>{{.Now.CPUText}}</strong><span>del servidor</span></div>
+    <div class="stat"><span>RAM ahora</span><strong>{{.Now.MemText}}</strong><span>{{with .Now.LimitText}}de {{.}} (límite){{else}}sin límite propio{{end}}</span></div>
+    <div class="stat"><span>Red ahora</span><strong class="small">{{.Now.NetText}}</strong></div>
+    <div class="stat"><span>Reinicios</span><strong>{{.Now.Restarts}}</strong>{{if .Now.OOMKills}}<span class="badge err">{{.Now.OOMKills}} procesos sin memoria</span>{{end}}</div>
+  </div>{{end}}
+  {{if .Empty}}<p class="muted">Aún no hay datos de este sitio para el período{{if ne .Range.Key "24h"}} (se resumen cada 15 min){{end}}.</p>
+  {{else}}
+  <div class="charts">
+    {{range .Charts}}<figure><figcaption>{{.Title}}</figcaption>{{.SVG}}<p class="legend">{{range .Series}}<span class="{{.Class}}">{{.Name}}</span>{{end}}{{if .Limit}}<span class="lim">límite del sitio</span>{{end}}{{if .Markers}}<span class="mk">deploy</span>{{end}}</p></figure>{{end}}
+  </div>
+  {{if .OOMEvents}}<div class="flash error small">En este período el kernel terminó {{.OOMEvents}} proceso(s) del sitio por falta de memoria (OOM): sube el límite de RAM en Editar o revisa el consumo de la aplicación.</div>{{end}}
+  {{end}}
+  {{end}}
+</section>
+
 <section class="card">
   <h2>Deploys</h2>
   {{if .Deployments}}

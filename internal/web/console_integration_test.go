@@ -23,6 +23,8 @@ import (
 	"world/internal/config"
 	"world/internal/deploy"
 	"world/internal/docker"
+	"world/internal/mail"
+	"world/internal/monitor"
 	"world/internal/proxy"
 	"world/internal/secret"
 	"world/internal/store"
@@ -66,7 +68,7 @@ func TestIntegrationConsole(t *testing.T) {
 
 	engine := deploy.New(cfg, st, dc, box)
 	srv, err := New(cfg, st, dc, box, engine, deploy.NewPoller(engine, st, time.Minute),
-		deploy.NewCron(engine, st, time.Minute), proxy.New(dc, cfg), "it")
+		deploy.NewCron(engine, st, time.Minute), proxy.New(dc, cfg), mail.New(dc, cfg), monitor.New(dc, st), "it")
 	if err != nil {
 		t.Fatal(err)
 	}
