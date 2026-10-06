@@ -3,6 +3,7 @@ package mail
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -153,7 +154,20 @@ func (c *Client) SetDomainActive(ctx context.Context, id string, active bool) er
 	if err != nil {
 		return err
 	}
-	return c.update(ctx, "Domain", id, map[string]any{"dnsManagement": dns})
+	if err := c.update(ctx, "Domain", id, map[string]any{"dnsManagement": dns}); err != nil {
+		return err
+	}
+	if !active {
+		return nil // Stalwart no borra registros: el MX lo revisa el usuario en Cloudflare
+	}
+	// Cambiar publishRecords no publica nada por sí solo (Stalwart publica al crear el dominio):
+	// hay que encolar la tarea DnsManagement. Stalwart revisa su cola cada ~5 minutos.
+	_, err = c.create(ctx, "Task", map[string]any{"@type": "DnsManagement", "domainId": id, "updateRecords": publishSet(true),
+		"onSuccessRenewCertificate": false, "status": map[string]any{"@type": "Pending"}})
+	if err != nil {
+		return fmt.Errorf("modo cambiado, pero no se pudo pedir la publicación del DNS: %w", err)
+	}
+	return nil
 }
 
 func (c *Client) DeleteDomain(ctx context.Context, id string) error {

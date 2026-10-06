@@ -181,7 +181,7 @@ func (s *Server) mailDomainMode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if active {
-		s.mailBack(w, r, back, "ok", "Dominio activo: Stalwart publicará el MX hacia este servidor en Cloudflare.")
+		s.mailBack(w, r, back, "ok", "Dominio activo: en unos 5 minutos Stalwart publica en Cloudflare el MX hacia este servidor. Borra el MX anterior en Cloudflare y, si venía de cPanel, cambia ahí el Email Routing a «Remote Mail Exchanger» recién cuando el MX nuevo esté publicado.")
 	} else {
 		s.mailBack(w, r, back, "ok", "Dominio en migración: Stalwart deja de administrar el MX. Revisa en Cloudflare a dónde apunta.")
 	}

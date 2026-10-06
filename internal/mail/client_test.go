@@ -196,3 +196,34 @@ func TestDefaultOriginAndQuota(t *testing.T) {
 		t.Errorf("%d", p)
 	}
 }
+
+func TestSetDomainActivePublishes(t *testing.T) {
+	var methods []string
+	var task map[string]any
+	c := fakeStalwart(t, func(method string, args map[string]any) (string, any) {
+		methods = append(methods, method)
+		switch method {
+		case "x:Domain/get":
+			return method, map[string]any{"list": []map[string]any{{"id": "d", "name": "statsup.cl", "dnsManagement": map[string]any{"@type": "Automatic"}}}}
+		case "x:DnsServer/query":
+			return method, map[string]any{"ids": []string{"dns1"}}
+		case "x:Domain/set":
+			return method, map[string]any{"updated": map[string]any{"d": nil}}
+		case "x:Task/set":
+			task = args["create"].(map[string]any)["n"].(map[string]any)
+			return method, map[string]any{"created": map[string]any{"n": map[string]any{"id": "t1"}}}
+		}
+		t.Fatalf("método %s", method)
+		return "", nil
+	})
+	if err := c.SetDomainActive(context.Background(), "d", true); err != nil {
+		t.Fatal(err)
+	}
+	if task == nil || task["@type"] != "DnsManagement" || task["domainId"] != "d" || task["updateRecords"].(map[string]any)["mx"] != true {
+		t.Fatalf("debe encolar la publicación del DNS: %v (%v)", task, methods)
+	}
+	task = nil
+	if err := c.SetDomainActive(context.Background(), "d", false); err != nil || task != nil {
+		t.Fatalf("migración no publica: %v %v", task, err)
+	}
+}
