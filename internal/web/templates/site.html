@@ -92,7 +92,10 @@
 <section class="card danger">
   <h2>Eliminar sitio</h2>
   <p class="muted small">Elimina el contenedor, las imágenes y la configuración. No se puede deshacer. Los volúmenes de datos (carpetas persistentes) se conservan.</p>
-  <form method="post" action="/sites/{{.Site.ID}}/delete" class="inline-form">
+  <form method="post" action="/sites/{{.Site.ID}}/delete" class="inline-form"
+        data-confirm="¿Eliminar el sitio {{.Site.Name}}?"
+        data-confirm-text="Se eliminan su contenedor, sus imágenes y su configuración. No se puede deshacer. Las carpetas persistentes se conservan."
+        data-confirm-button="Sí, eliminar el sitio">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
     <input name="confirm" placeholder="Escribe {{.Site.Name}} para confirmar" required autocomplete="off">
     <button type="submit" class="danger">Eliminar</button>

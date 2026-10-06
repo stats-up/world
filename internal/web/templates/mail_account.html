@@ -1,0 +1,50 @@
+{{define "title"}}{{.Account.Email}} · Correo{{end}}
+{{define "content"}}
+<p class="crumbs"><a href="/mail">Correo</a> / <a href="/mail/domains/{{.Domain.ID}}">{{.Domain.Name}}</a> /</p>
+<h1>{{.Account.Email}}</h1>
+
+<div class="grid">
+  <form method="post" action="/mail/domains/{{.Domain.ID}}/accounts/{{.Account.ID}}" class="card stack">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <h2>Datos</h2>
+    <label>Nombre o descripción<input name="description" value="{{.Account.Description}}"></label>
+    <label>Cuota (GB)<input name="quota_gb" value="{{.QuotaGB}}" placeholder="sin límite" inputmode="decimal">
+      <small>Usado: {{gb .Account.Used}}. Vacío o 0 = sin límite.</small></label>
+    {{if .Account.Quota}}<meter min="0" max="100" low="75" high="90" optimum="0" value="{{.Account.UsedPercent}}">{{.Account.UsedPercent}}%</meter>{{end}}
+    <label>Alias<input name="aliases" value="{{.Aliases}}" placeholder="contacto, info">
+      <small>Direcciones de {{.Domain.Name}} que también llegan a este buzón, separadas por coma.</small></label>
+    <div class="actions"><button type="submit" class="primary">Guardar</button></div>
+  </form>
+
+  <section class="card stack">
+    <h2>Configurar en el correo (Outlook, celular, Thunderbird)</h2>
+    <dl class="props">
+      <dt>Usuario</dt><dd><code>{{.Account.Email}}</code></dd>
+      <dt>Entrada (IMAP)</dt><dd><code>{{.Hostname}}</code> · puerto 993 · SSL/TLS</dd>
+      <dt>Salida (SMTP)</dt><dd><code>{{.Hostname}}</code> · puerto 465 · SSL/TLS<br><small>o 587 · STARTTLS</small></dd>
+    </dl>
+    <h2>Contraseña</h2>
+    <p class="small muted">world no guarda las contraseñas de los buzones. Si se perdió, genera una nueva: la anterior deja de funcionar en todos los equipos.</p>
+    <form method="post" action="/mail/domains/{{.Domain.ID}}/accounts/{{.Account.ID}}/password"
+          data-confirm="¿Generar una contraseña nueva para {{.Account.Email}}?"
+          data-confirm-text="La contraseña actual deja de funcionar de inmediato: habrá que actualizarla en el celular, Outlook y demás equipos."
+          data-confirm-button="Sí, cambiarla">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <button type="submit">Generar contraseña nueva</button>
+    </form>
+  </section>
+</div>
+
+<section class="card danger">
+  <h2>Eliminar buzón</h2>
+  <p class="muted small">Se borran el buzón y <strong>todos sus correos y adjuntos</strong>. No se puede deshacer.</p>
+  <form method="post" action="/mail/domains/{{.Domain.ID}}/accounts/{{.Account.ID}}/delete" class="inline-form"
+        data-confirm="¿Eliminar {{.Account.Email}}?"
+        data-confirm-text="Se borran el buzón y todos sus correos y adjuntos ({{gb .Account.Used}}). No se puede deshacer."
+        data-confirm-button="Sí, eliminar el buzón">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input name="confirm" placeholder="Escribe {{.Account.Email}} para confirmar" required autocomplete="off">
+    <button type="submit" class="danger">Eliminar</button>
+  </form>
+</section>
+{{end}}

@@ -170,8 +170,16 @@ Responde **HTTP 503** si alguno lleva varios minutos sin correr. Puedes apuntar 
 
 ## Correo (Stalwart)
 
-En construcción. En **Ajustes → Correo** se activa un servidor de correo [Stalwart](https://stalw.art)
+En **Ajustes → Correo** se activa un servidor de correo [Stalwart](https://stalw.art)
 (contenedor `world-stalwart`, versión fija, límite de 1 GB de RAM) que atiende todos los dominios.
+Los dominios y buzones se administran en la sección **Correo** del panel (la fuente de verdad es Stalwart, vía su API JMAP):
+
+- **Dominios:** al agregarlo, Stalwart crea su certificado (DNS-01 en Cloudflare) y sus llaves DKIM. Hay dos modos:
+  - *Migración:* el correo sigue llegando al servidor actual; solo se publica el DKIM. Sirve para crear los buzones y copiar los correos antes del corte.
+  - *Activo:* Stalwart publica el MX hacia este servidor (el corte). Se cambia con un botón y confirmación.
+  - El detalle del dominio verifica en el DNS público (1.1.1.1) los registros MX, SPF, DKIM, DMARC y de autoconfiguración. El SPF y el DMARC no se publican solos: se combinan a mano con los que ya existan.
+- **Buzones:** crear (la contraseña se genera y se muestra una sola vez), cuota, alias, contraseña nueva y eliminar.
+- Las acciones delicadas (eliminar, cambiar el MX, cambiar contraseñas) piden confirmación con SweetAlert2 (`data-confirm` en el formulario, ver `static/confirm.js`).
 
 - Publica los puertos `25`, `465`, `587` y `993`: ábrelos en el firewall de Lightsail (IPv4 e IPv6).
 - El nombre del servidor (ej: `mx.statsup.cl`) necesita un registro A a la IP (nube gris en Cloudflare) y el **DNS inverso (PTR)** de la IP con ese mismo nombre. En Lightsail, el PTR y el desbloqueo del puerto 25 de salida se piden a AWS con el formulario *Request to remove email sending limitations*.
@@ -241,7 +249,9 @@ sudo rm -rf /etc/systemd/system/world*.service /etc/systemd/system/world-update.
 - [ ] **Fase 2:** comandos de release (migraciones, seeders), rollback, workers de colas, archivos de llaves y assets compartidos
 - [ ] **Correo propio con Stalwart:** un solo servidor multi-dominio (SMTP, IMAP, JMAP) con adjuntos en un bucket S3, certificados por DNS-01 (Cloudflare) y envío directo
   - [x] Contenedor `world-stalwart` administrado por el panel (Ajustes → Correo) y estado en `/health`
-  - [ ] Configuración por la API de Stalwart (bucket, puertos, certificados) y sección "Correo" con dominios y buzones
+  - [x] Sección "Correo": dominios (modo migración/activo, verificación DNS) y buzones (cuota, alias, contraseñas)
+  - [ ] Aplicar desde world la configuración base de Stalwart (bucket, puerto 587, certificados), hoy hecha a mano por la API
+  - [ ] Estado del correo: cola de salida, rebotes y uso del bucket; reenvíos
 - [ ] **Fase 3:** crons HTTP hacia APIs con historial, y bases de datos y usuarios en MySQL/MariaDB (RDS) desde el panel
 - [ ] **Fase 4:** monitoreo de recursos, registro de caídas con diagnóstico, alertas (email/Telegram) y recomendaciones de recursos
 

@@ -46,6 +46,7 @@ type Server struct {
 	cron    *deploy.Cron
 	proxy   *proxy.Manager
 	mail    *mail.Manager
+	mailAPI *mail.Client
 	version string
 
 	pages    map[string]*template.Template
@@ -56,6 +57,7 @@ type Server struct {
 func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, poller *deploy.Poller, cron *deploy.Cron, px *proxy.Manager, mx *mail.Manager, version string) (*Server, error) {
 	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, poller: poller, cron: cron, proxy: px, mail: mx, version: version,
 		pages: map[string]*template.Template{}, limiter: newLimiter(10, 15*time.Minute)}
+	s.mailAPI = mail.NewClient(dc, func() string { return mail.LoadSettings(st, box).AdminSecret })
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}
@@ -141,6 +143,16 @@ func (s *Server) Handler() http.Handler {
 	priv("GET /settings", s.settingsForm)
 	priv("POST /settings", s.settingsSubmit)
 	priv("POST /settings/mail", s.mailSettingsSubmit)
+	priv("GET /mail", s.mailIndex)
+	priv("POST /mail/domains", s.mailDomainCreate)
+	priv("GET /mail/domains/{id}", s.mailDomainShow)
+	priv("POST /mail/domains/{id}/mode", s.mailDomainMode)
+	priv("POST /mail/domains/{id}/delete", s.mailDomainDelete)
+	priv("POST /mail/domains/{id}/accounts", s.mailAccountCreate)
+	priv("GET /mail/domains/{id}/accounts/{aid}", s.mailAccountShow)
+	priv("POST /mail/domains/{id}/accounts/{aid}", s.mailAccountUpdate)
+	priv("POST /mail/domains/{id}/accounts/{aid}/password", s.mailAccountPassword)
+	priv("POST /mail/domains/{id}/accounts/{aid}/delete", s.mailAccountDelete)
 	priv("GET /profile", s.profile)
 	priv("POST /profile/password", s.profilePassword)
 	priv("POST /profile/2fa/start", s.mfaStart)

@@ -1,0 +1,121 @@
+{{define "title"}}{{.Domain.Name}} · Correo{{end}}
+{{define "content"}}
+<p class="crumbs"><a href="/mail">Correo</a> /</p>
+<div class="row">
+  <h1>{{.Domain.Name}} {{if .Domain.Active}}<span class="badge ok">activo</span>{{else}}<span class="badge warn">migración</span>{{end}}</h1>
+</div>
+{{with .Domain.Description}}<p class="muted">{{.}}</p>{{end}}
+
+<section class="card">
+  <div class="row">
+    <h2>Buzones</h2>
+    <span class="muted small">{{len .Accounts}} buzón(es)</span>
+  </div>
+  {{if .Accounts}}
+  <table class="table">
+    <thead><tr><th>Dirección</th><th>Alias</th><th>Espacio</th></tr></thead>
+    <tbody>
+    {{range .Accounts}}
+      <tr>
+        <td><a href="/mail/domains/{{$.Domain.ID}}/accounts/{{.ID}}"><strong>{{.Email}}</strong></a>{{with .Description}}<br><small>{{.}}</small>{{end}}</td>
+        <td class="small">{{range $i, $a := .Aliases}}{{if $i}}, {{end}}{{$a}}{{end}}</td>
+        <td class="small quota">
+          {{if .Quota}}
+            <meter min="0" max="100" low="75" high="90" optimum="0" value="{{.UsedPercent}}">{{.UsedPercent}}%</meter>
+            {{gb .Used}} de {{gb .Quota}}
+          {{else}}{{gb .Used}} (sin límite){{end}}
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">Sin buzones todavía.</p>
+  {{end}}
+
+  <form method="post" action="/mail/domains/{{.Domain.ID}}/accounts" class="stack spaced">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <h2>Crear buzón</h2>
+    <div class="cols">
+      <label>Dirección
+        <span class="inline-form"><input name="name" placeholder="ventas" required autocomplete="off"> <span class="muted">@{{.Domain.Name}}</span></span>
+      </label>
+      <label>Cuota (GB)<input name="quota_gb" value="{{.DefaultQuotaGB}}" inputmode="decimal"><small>0 = sin límite.</small></label>
+    </div>
+    <div class="cols">
+      <label>Nombre o descripción (opcional)<input name="description" placeholder="Juan Pérez"></label>
+      <label>Alias (opcional)<input name="aliases" placeholder="contacto, info"><small>Otras direcciones de {{.Domain.Name}} que llegan a este buzón.</small></label>
+    </div>
+    <div class="actions"><button type="submit" class="primary">Crear buzón</button>
+      <span class="small muted">La contraseña se genera y se muestra una sola vez.</span></div>
+  </form>
+</section>
+
+<section class="card">
+  <div class="row">
+    <h2>Registros DNS</h2>
+    {{if .Pending}}<span class="badge warn">{{.Pending}} pendiente(s)</span>{{else}}<span class="badge ok">todo en orden</span>{{end}}
+  </div>
+  <p class="small muted">Verificados ahora en el DNS público (1.1.1.1). Stalwart publica solo los registros de su modo
+  ({{if .Domain.Active}}MX, DKIM y autoconfiguración{{else}}DKIM{{end}}) en la zona <code>{{if .Domain.Origin}}{{.Domain.Origin}}{{else}}{{.Domain.Name}}{{end}}</code>.
+  El SPF y el DMARC se crean a mano en Cloudflare, combinándolos con los que ya existan. Todos los registros de correo van con <strong>nube gris</strong>.</p>
+  {{if .Records}}
+  <table class="table">
+    <thead><tr><th>Estado</th><th>Tipo</th><th>Nombre</th><th>Valor esperado</th></tr></thead>
+    <tbody>
+    {{range .Records}}
+      <tr>
+        <td>{{if eq .Status "ok"}}<span class="badge ok">✓ ok</span>{{else if eq .Status "distinto"}}<span class="badge warn">distinto</span>{{else if eq .Status "falta"}}<span class="badge err">falta</span>{{else}}<span class="badge muted">error</span>{{end}}</td>
+        <td>{{.Type}}</td>
+        <td class="mono small">{{.Name}}</td>
+        <td><code>{{.Value}}</code>{{with .Note}}<br><small>{{.}}</small>{{end}}{{with .Found}}<br><small>Publicado: <code>{{.}}</code></small>{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">Stalwart todavía no genera los registros (las llaves DKIM tardan 1–2 minutos). Recarga en un momento.</p>
+  {{end}}
+  {{if not .Domain.Active}}
+  <p class="small muted">En migración, el MX sigue apuntando al servidor actual. Ojo: los correos que envíen los buzones de este servidor a direcciones de {{.Domain.Name}} se entregan aquí, no en el servidor actual.</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <h2>Modo</h2>
+  {{if .Domain.Active}}
+  <p class="small muted">Este servidor recibe el correo de {{.Domain.Name}} (MX → <code>{{.Hostname}}</code>).</p>
+  <form method="post" action="/mail/domains/{{.Domain.ID}}/mode"
+        data-confirm="¿Pasar {{.Domain.Name}} a migración?"
+        data-confirm-text="Stalwart deja de administrar el MX. Si nadie lo cambia en Cloudflare, el correo seguirá llegando a este servidor."
+        data-confirm-button="Sí, pasar a migración">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="hidden" name="mode" value="migration">
+    <button type="submit">Pasar a migración</button>
+  </form>
+  {{else}}
+  <p class="small muted">Activar = el corte: Stalwart cambia el MX de {{.Domain.Name}} en Cloudflare para que el correo llegue a <code>{{.Hostname}}</code>.
+  Hazlo después de copiar los correos (imapsync) y antes de la sincronización final.</p>
+  <form method="post" action="/mail/domains/{{.Domain.ID}}/mode"
+        data-confirm="¿Activar el correo de {{.Domain.Name}} en este servidor?"
+        data-confirm-text="Se cambia el MX en Cloudflare: el correo nuevo dejará de llegar al servidor actual y llegará aquí. Revisa que los buzones existan y que el SPF incluya este servidor."
+        data-confirm-button="Sí, cambiar el MX">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="hidden" name="mode" value="active">
+    <button type="submit" class="primary">Activar (cambiar el MX)</button>
+  </form>
+  {{end}}
+</section>
+
+<section class="card danger">
+  <h2>Eliminar dominio</h2>
+  <p class="muted small">Primero elimina sus buzones. Se borran sus llaves DKIM y su certificado del servidor.</p>
+  <form method="post" action="/mail/domains/{{.Domain.ID}}/delete"
+        data-confirm="¿Eliminar el dominio {{.Domain.Name}}?"
+        data-confirm-text="Se borran sus llaves DKIM y su configuración en el servidor de correo. No se puede deshacer."
+        data-confirm-button="Sí, eliminar el dominio">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <button type="submit" class="danger"{{if .Accounts}} disabled title="Tiene buzones"{{end}}>Eliminar dominio</button>
+  </form>
+</section>
+{{end}}

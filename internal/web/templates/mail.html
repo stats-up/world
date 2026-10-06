@@ -1,0 +1,48 @@
+{{define "title"}}Correo{{end}}
+{{define "content"}}
+<div class="row"><h1>Correo</h1></div>
+
+{{if .Disabled}}
+<div class="card empty">El servidor de correo está desactivado. Actívalo en <a href="/settings#correo">Ajustes → Correo</a>.</div>
+{{else if .Error}}
+<div class="flash error">{{.Error}}</div>
+{{else}}
+
+{{if .Domains}}
+<table class="table">
+  <thead><tr><th>Dominio</th><th>Modo</th><th>Buzones</th><th>Zona DNS</th></tr></thead>
+  <tbody>
+  {{range .Domains}}
+    <tr>
+      <td><a href="/mail/domains/{{.ID}}"><strong>{{.Name}}</strong></a>{{with .Description}}<br><small>{{.}}</small>{{end}}</td>
+      <td>{{if .Active}}<span class="badge ok">activo</span>{{else}}<span class="badge warn">migración</span>{{end}}</td>
+      <td>{{.Accounts}}</td>
+      <td class="muted">{{if .Origin}}{{.Origin}}{{else}}{{.Name}}{{end}}</td>
+    </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}
+<div class="card empty">Todavía no hay dominios de correo.</div>
+{{end}}
+
+<form method="post" action="/mail/domains" class="card stack">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <h2>Agregar dominio</h2>
+  <p class="small muted">Stalwart crea el certificado y las llaves DKIM, y publica sus registros en Cloudflare: el dominio (o su zona padre) debe estar en Cloudflare
+  y el token de Ajustes → Correo debe tener acceso a esa zona. El SPF y el DMARC no se tocan: el detalle del dominio te muestra qué valores poner.</p>
+  <div class="cols">
+    <label>Dominio<input name="name" placeholder="frikiforja.cl" required></label>
+    <label>Zona DNS en Cloudflare (opcional)<input name="origin" placeholder="automática">
+      <small>Solo para subdominios: ej. <code>frikiforja.cl</code> para <code>prueba.frikiforja.cl</code>.</small></label>
+  </div>
+  <label>Descripción (opcional)<input name="description" placeholder="Cliente, notas…"></label>
+  <fieldset>
+    <legend>Modo</legend>
+    <label class="check"><input type="radio" name="mode" value="migration" checked> <span><strong>Migración</strong>: el correo sigue llegando al servidor actual (cPanel). Solo se publica el DKIM. Úsalo para crear los buzones y copiar los correos antes del corte.</span></label>
+    <label class="check"><input type="radio" name="mode" value="active"> <span><strong>Activo</strong>: este servidor recibe el correo. Stalwart publica el MX hacia <code>{{.Hostname}}</code> en Cloudflare.</span></label>
+  </fieldset>
+  <div class="actions"><button type="submit" class="primary">Agregar dominio</button></div>
+</form>
+{{end}}
+{{end}}
