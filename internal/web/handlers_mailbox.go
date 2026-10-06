@@ -68,34 +68,51 @@ func (s *Server) mailIndex(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "mail", data{"Domains": domains, "Hostname": host})
 }
 
+// mailDomainNew muestra el formulario de dominio nuevo (también al volver con un error).
+func (s *Server) mailDomainNew(w http.ResponseWriter, r *http.Request) {
+	if !mail.Enabled(s.st) {
+		redirect(w, r, "/mail")
+		return
+	}
+	s.render(w, r, "mail_domain_new", data{"Hostname": s.serverHostname(), "Form": map[string]string{"mode": "migration"}})
+}
+
 func (s *Server) mailDomainCreate(w http.ResponseWriter, r *http.Request) {
 	name := strings.ToLower(strings.TrimSpace(r.FormValue("name")))
 	origin := strings.ToLower(strings.TrimSpace(r.FormValue("origin")))
 	desc := strings.TrimSpace(r.FormValue("description"))
 	active := r.FormValue("mode") == "active"
+	fail := func(msg string) {
+		mode := "migration"
+		if active {
+			mode = "active"
+		}
+		s.render(w, r, "mail_domain_new", data{"Hostname": s.serverHostname(), "Error": msg,
+			"Form": map[string]string{"name": name, "origin": r.FormValue("origin"), "description": desc, "mode": mode}})
+	}
 	if !hostRe.MatchString(name) {
-		s.mailBack(w, r, "/mail", "error", "Dominio inválido.")
+		fail("Dominio inválido.")
 		return
 	}
 	if origin == "" {
 		origin = mail.DefaultOrigin(name)
 	}
 	if origin != "" && (!hostRe.MatchString(origin) || (origin != name && !strings.HasSuffix(name, "."+origin))) {
-		s.mailBack(w, r, "/mail", "error", "La zona DNS debe ser el dominio o uno de sus dominios padre (ej: frikiforja.cl).")
+		fail("La zona DNS debe ser el dominio o uno de sus dominios padre (ej: frikiforja.cl).")
 		return
 	}
 	if origin == name {
 		origin = ""
 	}
 	if name == s.serverHostname() {
-		s.mailBack(w, r, "/mail", "error", "Ese es el nombre del servidor de correo, no un dominio de correo.")
+		fail("Ese es el nombre del servidor de correo, no un dominio de correo.")
 		return
 	}
 	ctx, cancel := s.mailCtx(r)
 	defer cancel()
 	id, err := s.mailAPI.CreateDomain(ctx, name, origin, desc, active)
 	if err != nil {
-		s.mailBack(w, r, "/mail", "error", "No se pudo crear el dominio: "+err.Error())
+		fail("No se pudo crear el dominio: " + err.Error())
 		return
 	}
 	s.mailBack(w, r, "/mail/domains/"+id, "ok", "Dominio "+name+" creado. Stalwart está publicando sus registros y pidiendo el certificado (1–2 minutos).")
@@ -132,15 +149,22 @@ func (s *Server) mailDomainShow(w http.ResponseWriter, r *http.Request) {
 		s.mailError(w, r, err)
 		return
 	}
-	records := mail.CheckRecords(ctx, mail.Resolver, mail.ParseZone(d.ZoneFile))
-	pending := 0
-	for _, rec := range records {
-		if rec.Status != "ok" {
-			pending++
-		}
+	tab := r.URL.Query().Get("tab")
+	if tab != "dns" && tab != "ajustes" {
+		tab = "buzones"
 	}
-	s.render(w, r, "mail_domain", data{"Domain": d, "Accounts": accounts, "Records": records, "Pending": pending,
-		"Hostname": s.serverHostname(), "DefaultQuotaGB": defaultQuotaGB})
+	dd := data{"Domain": d, "Accounts": accounts, "Tab": tab, "Hostname": s.serverHostname()}
+	if tab == "dns" { // la verificación consulta el DNS público: solo en su pestaña
+		records := mail.CheckRecords(ctx, mail.Resolver, mail.ParseZone(d.ZoneFile))
+		pending := 0
+		for _, rec := range records {
+			if rec.Status != "ok" {
+				pending++
+			}
+		}
+		dd["Records"], dd["Pending"] = records, pending
+	}
+	s.render(w, r, "mail_domain", dd)
 }
 
 func (s *Server) mailDomainMode(w http.ResponseWriter, r *http.Request) {
@@ -151,7 +175,7 @@ func (s *Server) mailDomainMode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	active := r.FormValue("mode") == "active"
-	back := "/mail/domains/" + d.ID
+	back := "/mail/domains/" + d.ID + "?tab=ajustes"
 	if err := s.mailAPI.SetDomainActive(ctx, d.ID, active); err != nil {
 		s.mailBack(w, r, back, "error", "No se pudo cambiar el modo: "+err.Error())
 		return
@@ -171,7 +195,7 @@ func (s *Server) mailDomainDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.mailAPI.DeleteDomain(ctx, d.ID); err != nil {
-		s.mailBack(w, r, "/mail/domains/"+d.ID, "error", "No se pudo eliminar: "+err.Error())
+		s.mailBack(w, r, "/mail/domains/"+d.ID+"?tab=ajustes", "error", "No se pudo eliminar: "+err.Error())
 		return
 	}
 	s.mailBack(w, r, "/mail", "ok", "Dominio "+d.Name+" eliminado.")
@@ -233,6 +257,17 @@ func (s *Server) renderPassword(w http.ResponseWriter, r *http.Request, d *mail.
 	s.render(w, r, "mail_password", data{"Domain": d, "Email": email, "Password": password, "Created": created, "Hostname": s.serverHostname()})
 }
 
+// mailAccountNew muestra el formulario de buzón nuevo.
+func (s *Server) mailAccountNew(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := s.mailCtx(r)
+	defer cancel()
+	d, ok := s.loadDomain(w, r, ctx)
+	if !ok {
+		return
+	}
+	s.render(w, r, "mail_account_new", data{"Domain": d, "Form": map[string]string{"quota_gb": strconv.Itoa(defaultQuotaGB)}})
+}
+
 func (s *Server) mailAccountCreate(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := s.mailCtx(r)
 	defer cancel()
@@ -240,30 +275,33 @@ func (s *Server) mailAccountCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	back := "/mail/domains/" + d.ID
 	name := strings.ToLower(strings.TrimSpace(r.FormValue("name")))
 	if i := strings.IndexByte(name, '@'); i >= 0 {
 		name = name[:i]
 	}
+	fail := func(msg string) {
+		s.render(w, r, "mail_account_new", data{"Domain": d, "Error": msg, "Form": map[string]string{"name": name,
+			"quota_gb": r.FormValue("quota_gb"), "description": r.FormValue("description"), "aliases": r.FormValue("aliases")}})
+	}
 	if !localPartRe.MatchString(name) {
-		s.mailBack(w, r, back, "error", "Nombre de buzón inválido: usa minúsculas, números, punto, guion o guion bajo.")
+		fail("Nombre de buzón inválido: usa minúsculas, números, punto, guion o guion bajo.")
 		return
 	}
 	quota, err := parseQuotaGB(r.FormValue("quota_gb"))
 	if err != nil {
-		s.mailBack(w, r, back, "error", err.Error())
+		fail(err.Error())
 		return
 	}
 	aliases, err := parseAliases(r.FormValue("aliases"), name)
 	if err != nil {
-		s.mailBack(w, r, back, "error", err.Error())
+		fail(err.Error())
 		return
 	}
 	password := generatePassword()
 	_, err = s.mailAPI.CreateAccount(ctx, mail.NewAccount{DomainID: d.ID, Name: name, Description: strings.TrimSpace(r.FormValue("description")),
 		Password: password, Quota: quota, Aliases: aliases})
 	if err != nil {
-		s.mailBack(w, r, back, "error", "No se pudo crear el buzón: "+err.Error())
+		fail("No se pudo crear el buzón: " + err.Error())
 		return
 	}
 	s.renderPassword(w, r, d, name+"@"+d.Name, password, true)

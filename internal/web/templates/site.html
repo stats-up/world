@@ -1,25 +1,32 @@
 {{define "title"}}{{.Site.Name}}{{end}}
 {{define "content"}}
-<p class="crumbs"><a href="/">Sitios</a> / {{.Site.Name}}</p>
-<div class="row">
-  <h1>{{.Site.Name}} {{with .Container}}{{template "status" .State}}{{else}}<span class="badge muted">sin desplegar</span>{{end}}</h1>
+<nav class="crumbs"><a href="/">Sitios</a>{{icon "chevron"}}<span>{{.Site.Name}}</span></nav>
+<div class="page-head">
+  <div class="page-title">
+    <span class="avatar">{{initial .Site.Name}}</span>
+    <div>
+      <h1>{{.Site.Name}} {{with .Container}}{{template "status" .State}}{{else}}<span class="badge muted">sin desplegar</span>{{end}}</h1>
+      <p class="sub">{{with .Site.PrimaryDomain}}<a href="https://{{.}}" target="_blank" rel="noopener">{{.}} {{icon "external"}}</a> · {{end}}{{.Site.Kind}}{{if eq .Site.Kind "php"}} {{.Site.PHPVersion}}{{end}} · rama <code>{{.Site.Branch}}</code></p>
+    </div>
+  </div>
   <div class="actions">
-    <a class="button" href="/sites/{{.Site.ID}}/edit">Editar</a>
+    {{with .Container}}{{if eq .State "running"}}<a class="button" href="/sites/{{$.Site.ID}}/console">{{icon "terminal"}} Consola</a>{{end}}{{end}}
+    <a class="button" href="/sites/{{.Site.ID}}/edit">{{icon "edit"}} Editar</a>
     <form method="post" action="/sites/{{.Site.ID}}/deploy" class="inline">
       <input type="hidden" name="csrf" value="{{.CSRF}}">
-      <button type="submit" class="primary">Deploy</button>
+      <button type="submit" class="primary">{{icon "rocket"}} Deploy</button>
     </form>
   </div>
 </div>
-{{with .DockerError}}<div class="flash error">No se pudo conectar con Docker: {{.}}</div>{{end}}
+{{with .DockerError}}<div class="flash error">{{icon "alert"}}<div>No se pudo conectar con Docker: {{.}}</div></div>{{end}}
 
 <div class="grid">
   <section class="card">
     <h2>Configuración</h2>
     <dl class="props">
-      <dt>Repositorio</dt><dd><code>{{.Site.RepoURL}}</code> ({{.Site.Branch}})</dd>
+      <dt>Repositorio</dt><dd><code>{{.Site.RepoURL}}</code> <span class="muted small">{{icon "branch"}} {{.Site.Branch}}</span></dd>
       <dt>Tipo</dt><dd>{{.Site.Kind}}{{if eq .Site.Kind "php"}} · PHP {{.Site.PHPVersion}}{{with .Site.PHPExtensions}} · ext: {{.}}{{end}}{{end}}</dd>
-      <dt>Dominios</dt><dd>{{range $i, $d := .Site.Domains}}<a href="https://{{$d}}" target="_blank" rel="noopener">{{$d}}</a>{{if and $.Site.RedirectAliases (gt (len $.Site.Domains) 1)}}{{if eq $i 0}} <span class="badge ok">principal</span>{{else}} <span class="muted small">→ redirige al principal</span>{{end}}{{end}}<br>{{else}}<span class="muted">sin dominio (no es accesible desde internet)</span>{{end}}</dd>
+      <dt>Dominios</dt><dd>{{range $i, $d := .Site.Domains}}<a href="https://{{$d}}" target="_blank" rel="noopener">{{$d}}</a>{{if and $.Site.RedirectAliases (gt (len $.Site.Domains) 1)}}{{if eq $i 0}} <span class="badge accent">principal</span>{{else}} <span class="muted small">→ redirige al principal</span>{{end}}{{end}}<br>{{else}}<span class="muted">sin dominio (no es accesible desde internet)</span>{{end}}</dd>
       <dt>Carpetas persistentes</dt><dd>{{range .Site.PersistPaths}}<code>{{.}}</code><br>{{else}}<span class="muted">ninguna (todo se pierde en cada deploy)</span>{{end}}</dd>
       <dt>Cron</dt><dd>{{if .Site.CronCommand}}<code>{{.Site.CronCommand}}</code> <span class="muted small">cada minuto</span><br>
         {{if .Site.LastCronAt.IsZero}}<span class="muted small">aún no se ha ejecutado</span>
@@ -32,49 +39,29 @@
         {{with .Site.LastCheckError}}<div class="flash error small">{{.}}</div>{{end}}
         {{else}}<span class="muted">desactivado (deploy manual)</span>{{end}}</dd>
       <dt>Recursos</dt><dd>{{if .Site.MemoryMB}}{{.Site.MemoryMB}} MB{{else}}RAM sin límite{{end}} · {{if .Site.CPUs}}{{.Site.CPUs}} CPU{{else}}CPU sin límite{{end}}</dd>
-      {{with .Container}}<dt>Contenedor</dt><dd><code>{{index .Names 0}}</code> · {{.Status}}</dd>{{end}}
+      {{with .Container}}<dt>Contenedor</dt><dd><code>{{index .Names 0}}</code> <span class="muted small">{{.Status}}</span></dd>{{end}}
     </dl>
   </section>
 
   {{if .Site.UsesSSH}}
   <section class="card">
-    <h2>Deploy key</h2>
+    <h2>{{icon "key"}} Deploy key</h2>
     <p class="muted small">Repositorio privado: agrega esta llave en GitHub → tu repo → <em>Settings → Deploy keys → Add deploy key</em>
       (deja desmarcado "Allow write access").</p>
-    <textarea class="mono" rows="3" readonly>{{.Site.DeployKeyPub}}</textarea>
+    <textarea class="mono" rows="4" readonly>{{.Site.DeployKeyPub}}</textarea>
   </section>
   {{end}}
 </div>
 
-{{if .Container}}
-<section class="card">
-  <div class="row">
-    <h2>Contenedor</h2>
-    <div class="actions">
-      {{if eq .Container.State "running"}}<a class="button" href="/sites/{{.Site.ID}}/console">Consola</a>{{end}}
-      <form method="post" action="/sites/{{.Site.ID}}/control/restart" class="inline"><input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit">Reiniciar</button></form>
-      {{if eq .Container.State "running"}}
-      <form method="post" action="/sites/{{.Site.ID}}/control/stop" class="inline"><input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit">Detener</button></form>
-      {{else}}
-      <form method="post" action="/sites/{{.Site.ID}}/control/start" class="inline"><input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit">Iniciar</button></form>
-      {{end}}
-    </div>
-  </div>
-  <div id="container-logs">
-    <button type="button" hx-get="/sites/{{.Site.ID}}/logs" hx-target="#container-logs" hx-swap="outerHTML">Ver logs</button>
-  </div>
-</section>
-{{end}}
-
 <section class="card" id="uso">
   <div class="row">
-    <h2>Uso de recursos</h2>
+    <h2>{{icon "activity"}} Uso de recursos</h2>
     <nav class="tabs">{{range .Metrics.Ranges}}<a href="/sites/{{$.Site.ID}}?range={{.Key}}#uso"{{if eq .Key $.Metrics.Range.Key}} class="active" aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
   </div>
   {{with .Metrics}}
   {{if .HasNow}}<div class="stats">
-    <div class="stat"><span>CPU ahora</span><strong>{{.Now.CPUText}}</strong><span>del servidor</span></div>
-    <div class="stat"><span>RAM ahora</span><strong>{{.Now.MemText}}</strong><span>{{with .Now.LimitText}}de {{.}} (límite){{else}}sin límite propio{{end}}</span></div>
+    <div class="stat"><span>CPU ahora</span><strong>{{.Now.CPUText}}</strong><small>del servidor</small></div>
+    <div class="stat"><span>RAM ahora</span><strong>{{.Now.MemText}}</strong><small>{{with .Now.LimitText}}de {{.}} (límite){{else}}sin límite propio{{end}}</small></div>
     <div class="stat"><span>Red ahora</span><strong class="small">{{.Now.NetText}}</strong></div>
     <div class="stat"><span>Reinicios</span><strong>{{.Now.Restarts}}</strong>{{if .Now.OOMKills}}<span class="badge err">{{.Now.OOMKills}} procesos sin memoria</span>{{end}}</div>
   </div>{{end}}
@@ -83,36 +70,57 @@
   <div class="charts">
     {{range .Charts}}<figure><figcaption>{{.Title}}</figcaption>{{.SVG}}<p class="legend">{{range .Series}}<span class="{{.Class}}">{{.Name}}</span>{{end}}{{if .Limit}}<span class="lim">límite del sitio</span>{{end}}{{if .Markers}}<span class="mk">deploy</span>{{end}}</p></figure>{{end}}
   </div>
-  {{if .OOMEvents}}<div class="flash error small">En este período el kernel terminó {{.OOMEvents}} proceso(s) del sitio por falta de memoria (OOM): sube el límite de RAM en Editar o revisa el consumo de la aplicación.</div>{{end}}
+  {{if .OOMEvents}}<div class="flash error small">{{icon "alert"}}<span>En este período el kernel terminó {{.OOMEvents}} proceso(s) del sitio por falta de memoria (OOM): sube el límite de RAM en Editar o revisa el consumo de la aplicación.</span></div>{{end}}
   {{end}}
   {{end}}
 </section>
 
+{{if .Container}}
 <section class="card">
-  <h2>Deploys</h2>
+  <div class="row">
+    <h2>{{icon "sites"}} Contenedor</h2>
+    <div class="actions">
+      <form method="post" action="/sites/{{.Site.ID}}/control/restart" class="inline"><input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit" class="sm">{{icon "refresh"}} Reiniciar</button></form>
+      {{if eq .Container.State "running"}}
+      <form method="post" action="/sites/{{.Site.ID}}/control/stop" class="inline"><input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit" class="sm">{{icon "stop"}} Detener</button></form>
+      {{else}}
+      <form method="post" action="/sites/{{.Site.ID}}/control/start" class="inline"><input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit" class="sm">{{icon "play"}} Iniciar</button></form>
+      {{end}}
+    </div>
+  </div>
+  <div id="container-logs">
+    <button type="button" class="sm" hx-get="/sites/{{.Site.ID}}/logs" hx-target="#container-logs" hx-swap="outerHTML">{{icon "logs"}} Ver logs</button>
+  </div>
+</section>
+{{end}}
+
+<section class="card{{if .Deployments}} flush{{end}}">
+  <div class="row"><h2>{{icon "rocket"}} Deploys</h2></div>
   {{if .Deployments}}
+  <div class="table-wrap">
   <table class="table">
-    <thead><tr><th>#</th><th>Estado</th><th>Commit</th><th>Origen</th><th>Inicio</th><th>Duración</th></tr></thead>
+    <thead><tr><th>#</th><th>Estado</th><th>Commit</th><th class="hide-sm">Origen</th><th>Inicio</th><th class="hide-sm">Duración</th></tr></thead>
     <tbody>
     {{range .Deployments}}
-      <tr>
+      <tr data-href="/deployments/{{.ID}}">
         <td><a href="/deployments/{{.ID}}">#{{.ID}}</a></td>
         <td>{{template "deploy_status" .Status}}</td>
         <td>{{with .CommitSHA}}<code>{{short .}}</code>{{else}}<span class="muted">—</span>{{end}}</td>
-        <td>{{if eq .Source "auto"}}automático{{else}}manual{{end}}</td>
-        <td>{{ago .StartedAt}}</td>
-        <td>{{.Duration}}</td>
+        <td class="hide-sm">{{if eq .Source "auto"}}automático{{else}}manual{{end}}</td>
+        <td class="small">{{ago .StartedAt}}</td>
+        <td class="small hide-sm">{{.Duration}}</td>
       </tr>
     {{end}}
     </tbody>
   </table>
+  </div>
   {{else}}
-  <p class="muted">Aún no hay deploys.</p>
+  <p class="muted">Aún no hay deploys. Presiona <strong>Deploy</strong> para publicar el sitio.</p>
   {{end}}
 </section>
 
 <section class="card danger">
-  <h2>Eliminar sitio</h2>
+  <h2>{{icon "trash"}} Eliminar sitio</h2>
   <p class="muted small">Elimina el contenedor, las imágenes y la configuración. No se puede deshacer. Los volúmenes de datos (carpetas persistentes) se conservan.</p>
   <form method="post" action="/sites/{{.Site.ID}}/delete" class="inline-form"
         data-confirm="¿Eliminar el sitio {{.Site.Name}}?"

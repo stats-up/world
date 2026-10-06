@@ -4,35 +4,54 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
+  <meta name="color-scheme" content="light dark">
   <title>{{block "title" .}}world{{end}} · world</title>
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="icon" href="/static/favicon.svg?v={{.Version}}" type="image/svg+xml">
+  <link rel="icon" href="/static/favicon-32.png?v={{.Version}}" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v={{.Version}}">
+  <link rel="stylesheet" href="/static/app.css?v={{.Version}}">
   <link rel="stylesheet" href="/static/sweetalert2/sweetalert2.min.css">
   <script src="/static/htmx.min.js" defer></script>
   <script src="/static/sweetalert2/sweetalert2.min.js" defer></script>
-  <script src="/static/confirm.js" defer></script>
+  <script src="/static/confirm.js?v={{.Version}}" defer></script>
+  <script src="/static/ui.js?v={{.Version}}" defer></script>
   {{block "head" .}}{{end}}
 </head>
-<body{{if .CSRF}} hx-headers='{"X-CSRF-Token": "{{.CSRF}}"}'{{end}}>
+<body class="{{if .User}}app{{else}}auth{{end}}"{{if .CSRF}} hx-headers='{"X-CSRF-Token": "{{.CSRF}}"}'{{end}}>
   {{if .User}}
-  <header class="topbar">
-    <a class="brand" href="/">world</a>
-    <nav>
-      <a href="/">Sitios</a>
-      <a href="/monitor">Monitoreo</a>
-      <a href="/mail">Correo</a>
-      <a href="/settings">Ajustes</a>
-      <a href="/profile">Perfil</a>
-      <form method="post" action="/logout" class="inline">
-        <input type="hidden" name="csrf" value="{{.CSRF}}">
-        <button class="link" type="submit">Salir</button>
-      </form>
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <a class="brand" href="/"><span class="brand-mark">{{icon "logo"}}</span> world</a>
+      <details class="nav-toggle">
+        <summary aria-label="Menú">{{icon "menu"}}</summary>
+      </details>
+    </div>
+    <nav class="nav">
+      <a href="/"{{if navOn .Path "/"}} class="on" aria-current="page"{{end}}>{{icon "sites"}} Sitios</a>
+      <a href="/monitor"{{if navOn .Path "/monitor"}} class="on" aria-current="page"{{end}}>{{icon "activity"}} Monitoreo</a>
+      <a href="/mail"{{if navOn .Path "/mail"}} class="on" aria-current="page"{{end}}>{{icon "mail"}} Correo</a>
+      <a href="/settings"{{if navOn .Path "/settings"}} class="on" aria-current="page"{{end}}>{{icon "settings"}} Ajustes</a>
     </nav>
-  </header>
-  {{end}}
-  <main class="{{if .User}}container{{else}}narrow{{end}}">
-    {{with .Flash}}<div class="flash {{.Kind}}">{{.Msg}}</div>{{end}}
+    <div class="nav nav-foot">
+      <a href="/profile"{{if navOn .Path "/profile"}} class="on" aria-current="page"{{end}} title="{{.User.Email}}">{{icon "user"}} <span class="ellipsis">{{.User.Email}}</span></a>
+      <form method="post" action="/logout">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <button class="nav-btn" type="submit">{{icon "logout"}} Salir</button>
+      </form>
+      <span class="version">world {{.Version}}</span>
+    </div>
+  </aside>
+  <main class="main">
+    {{with .Flash}}<div class="flash {{.Kind}}">{{if eq .Kind "ok"}}{{icon "check"}}{{else if eq .Kind "error"}}{{icon "alert"}}{{end}}<div>{{.Msg}}</div></div>{{end}}
     {{template "content" .}}
   </main>
-  <footer class="footer">world {{.Version}}</footer>
+  {{else}}
+  <main class="auth-main">
+    <div class="auth-brand"><span class="brand-mark lg">{{icon "logo"}}</span><span>world</span></div>
+    {{with .Flash}}<div class="flash {{.Kind}}"><div>{{.Msg}}</div></div>{{end}}
+    {{template "content" .}}
+    <p class="version">world {{.Version}}</p>
+  </main>
+  {{end}}
 </body>
 </html>{{end}}

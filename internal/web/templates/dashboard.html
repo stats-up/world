@@ -1,64 +1,64 @@
 {{define "title"}}Sitios{{end}}
-{{define "head"}}<script src="/static/sort.js" defer></script>{{end}}
+{{define "head"}}<script src="/static/sort.js?v={{.Version}}" defer></script>{{end}}
 {{define "content"}}
-{{if .DockerError}}
-<div class="flash error">No se pudo conectar con Docker: {{.DockerError}}</div>
-{{else}}
-<section class="stats">
-  <div class="stat"><span>Docker</span><strong>{{.Docker.ServerVersion}}</strong></div>
-  <div class="stat"><span>CPU</span><strong>{{.Docker.NCPU}} vCPU</strong></div>
-  <div class="stat"><span>RAM</span><strong>{{gb .Docker.MemTotal}}</strong></div>
-  <div class="stat"><span>Contenedores activos</span><strong>{{.Docker.ContainersRunning}}</strong></div>
-  <div class="stat"><span>Traefik</span><strong>{{template "status" .Traefik}}</strong></div>
-</section>
+<div class="page-head">
+  <div>
+    <h1>Sitios</h1>
+    <p class="sub">{{len .Sites}} sitio{{if ne (len .Sites) 1}}s{{end}} en este servidor{{with .Docker}} · Docker {{.ServerVersion}} · {{.NCPU}} vCPU · {{gb .MemTotal}} RAM{{end}}</p>
+  </div>
+  <div class="actions"><a class="button primary" href="/sites/new">{{icon "plus"}} Nuevo sitio</a></div>
+</div>
+
+{{if .DockerError}}<div class="flash error">{{icon "alert"}}<div>No se pudo conectar con Docker: {{.DockerError}}</div></div>{{end}}
+{{if not .PanelDomain}}
+<div class="flash info">{{icon "lock"}}<div>El panel aún no tiene dominio y se está usando sin HTTPS. Configúralo en <a href="/settings">Ajustes</a>.</div></div>
 {{end}}
 
-{{with .Health}}
-<section class="stats">
-  <div class="stat"><span>Auto-deploy de sitios (cada 1 min)</span>
-    <strong>{{if .AutoDeploy.OK}}<span class="badge ok">activo</span>{{else}}<span class="badge err">detenido</span>{{end}}</strong>
-    <span>{{if ge .AutoDeploy.SecondsAgo 0}}último ciclo hace {{.AutoDeploy.SecondsAgo}} s{{else}}aún no ha corrido{{end}}</span></div>
-  <div class="stat"><span>Auto-update del panel (cada 1 min)</span>
-    <strong>{{if .SelfUpdate.OK}}<span class="badge ok">activo</span>{{else}}<span class="badge err">detenido</span>{{end}}</strong>
-    <span>{{if ge .SelfUpdate.SecondsAgo 0}}último chequeo hace {{.SelfUpdate.SecondsAgo}} s{{else}}{{.SelfUpdate.Error}}{{end}}</span></div>
-  <div class="stat"><span>Cron de sitios (cada 1 min)</span>
-    <strong>{{if .SiteCron.OK}}<span class="badge ok">activo</span>{{else if lt .SiteCron.SecondsAgo 0}}<span class="badge muted">iniciando</span>{{else}}<span class="badge err">detenido</span>{{end}}</strong>
-    <span>{{if ge .SiteCron.SecondsAgo 0}}último ciclo hace {{.SiteCron.SecondsAgo}} s{{else}}parte al inicio del próximo minuto{{end}}</span></div>
+{{if .Sites}}
+<section class="card flush">
+  <div class="table-wrap">
+  <table class="table sortable" id="sites">
+    <thead><tr><th data-sort="text">Sitio</th><th class="hide-sm">Dominios</th><th data-sort="text">Estado</th><th data-sort="num">CPU · 24 h</th><th data-sort="num" class="hide-sm">RAM · 24 h</th></tr></thead>
+    <tbody>
+    {{range $site := .Sites}}
+      <tr data-href="/sites/{{.ID}}">
+        <td data-v="{{.Name}}"><div class="cell-main"><span class="avatar sm">{{initial .Name}}</span>
+          <div class="ellipsis"><a href="/sites/{{.ID}}">{{.Name}}</a><small>{{.Kind}}{{if eq .Kind "php"}} {{.PHPVersion}}{{end}}{{if .AutoDeploy}} · {{icon "branch"}} auto{{end}}</small></div></div></td>
+        <td class="small hide-sm">{{range .Domains}}<a href="https://{{.}}" target="_blank" rel="noopener">{{.}}</a><br>{{else}}<span class="muted">—</span>{{end}}</td>
+        <td data-v="{{with $.Containers}}{{(index . $site.Name).State}}{{end}}">{{if $.Containers}}{{template "site_state" (index $.Containers .Name)}}{{else}}<span class="muted">—</span>{{end}}</td>
+        {{with $.Mon}}{{with index .Sites $site.Name}}
+        <td data-v="{{.CPU}}"><strong>{{.CPUText}}</strong>{{.CPUSpark}}</td>
+        <td data-v="{{.Mem}}" class="hide-sm"><strong>{{.MemText}}</strong>{{with .LimitText}} <span class="muted small">de {{.}}</span>{{end}}{{if .OOMKills}} <span class="badge err" title="Procesos terminados por falta de memoria desde que inició el contenedor">{{.OOMKills}} sin memoria</span>{{end}}{{.MemSpark}}</td>
+        {{else}}<td data-v="-1"><span class="muted">—</span></td><td data-v="-1" class="hide-sm"><span class="muted">—</span></td>{{end}}{{else}}<td></td><td class="hide-sm"></td>{{end}}
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
 </section>
+{{else}}
+<div class="card empty-state">
+  {{icon "sites"}}
+  <strong>Todavía no hay sitios</strong>
+  <p>Crea el primero desde un repositorio de GitHub.</p>
+  <div class="actions"><a class="button primary" href="/sites/new">{{icon "plus"}} Nuevo sitio</a></div>
+</div>
 {{end}}
 
 {{with .Mon}}{{template "monitor_host" .}}{{end}}
 
-{{if not .PanelDomain}}
-<div class="flash info">El panel aún no tiene dominio y se está usando sin HTTPS. Configúralo en <a href="/settings">Ajustes</a>.</div>
-{{end}}
-
-<div class="row">
-  <h1>Sitios</h1>
-  <a class="button primary" href="/sites/new">+ Nuevo sitio</a>
-</div>
-
-{{if .Sites}}
-<table class="table sortable sites">
-  <thead><tr><th data-sort="text">Nombre</th><th>Dominios</th><th data-sort="text">Tipo</th><th data-sort="text">Estado</th><th data-sort="num">CPU · 24 h</th><th data-sort="num">RAM · 24 h</th></tr></thead>
-  <tbody>
-  {{range $site := .Sites}}
-    <tr>
-      <td><a href="/sites/{{.ID}}"><strong>{{.Name}}</strong></a></td>
-      <td>{{range .Domains}}<a href="https://{{.}}" target="_blank" rel="noopener">{{.}}</a><br>{{else}}<span class="muted">—</span>{{end}}</td>
-      <td data-v="{{.Kind}}">{{.Kind}}</td>
-      <td data-v="{{with $.Containers}}{{(index . $site.Name).State}}{{end}}">{{if $.Containers}}{{template "site_state" (index $.Containers .Name)}}{{else}}<span class="muted">—</span>{{end}}</td>
-      {{with $.Mon}}{{with index .Sites $site.Name}}
-      <td data-v="{{.CPU}}"><strong>{{.CPUText}}</strong>{{.CPUSpark}}</td>
-      <td data-v="{{.Mem}}"><strong>{{.MemText}}</strong>{{with .LimitText}} <span class="muted small">de {{.}}</span>{{end}}{{if .OOMKills}} <span class="badge err" title="Procesos terminados por falta de memoria desde que inició el contenedor">{{.OOMKills}} sin memoria</span>{{end}}{{.MemSpark}}</td>
-      {{else}}<td data-v="-1"><span class="muted">—</span></td><td data-v="-1"><span class="muted">—</span></td>{{end}}{{else}}<td></td><td></td>{{end}}
-    </tr>
+<section class="stats">
+  {{if not .DockerError}}<div class="stat"><span>Traefik (proxy y SSL)</span><strong>{{template "status" .Traefik}}</strong></div>{{end}}
+  {{with .Health}}
+  <div class="stat"><span>Auto-deploy de sitios</span>
+    <strong>{{if .AutoDeploy.OK}}<span class="badge ok">activo</span>{{else}}<span class="badge err">detenido</span>{{end}}</strong>
+    <small>{{if ge .AutoDeploy.SecondsAgo 0}}último ciclo hace {{.AutoDeploy.SecondsAgo}} s{{else}}aún no ha corrido{{end}}</small></div>
+  <div class="stat"><span>Auto-update del panel</span>
+    <strong>{{if .SelfUpdate.OK}}<span class="badge ok">activo</span>{{else}}<span class="badge err">detenido</span>{{end}}</strong>
+    <small>{{if ge .SelfUpdate.SecondsAgo 0}}último chequeo hace {{.SelfUpdate.SecondsAgo}} s{{else}}{{.SelfUpdate.Error}}{{end}}</small></div>
+  <div class="stat"><span>Cron de sitios</span>
+    <strong>{{if .SiteCron.OK}}<span class="badge ok">activo</span>{{else if lt .SiteCron.SecondsAgo 0}}<span class="badge muted">iniciando</span>{{else}}<span class="badge err">detenido</span>{{end}}</strong>
+    <small>{{if ge .SiteCron.SecondsAgo 0}}último ciclo hace {{.SiteCron.SecondsAgo}} s{{else}}parte al inicio del próximo minuto{{end}}</small></div>
   {{end}}
-  </tbody>
-</table>
-{{else}}
-<div class="card empty">
-  <p>Todavía no hay sitios. Crea el primero desde un repositorio de GitHub.</p>
-</div>
-{{end}}
+</section>
 {{end}}

@@ -6,9 +6,9 @@
   <script src="/static/console.js" defer></script>
 {{end}}
 {{define "content"}}
-<p class="crumbs"><a href="/">Sitios</a> / <a href="/sites/{{.Site.ID}}">{{.Site.Name}}</a> / Consola</p>
+<nav class="crumbs"><a href="/">Sitios</a>{{icon "chevron"}}<a href="/sites/{{.Site.ID}}">{{.Site.Name}}</a>{{icon "chevron"}}<span>Consola</span></nav>
 <div class="row">
-  <h1>Consola <span class="muted small">{{.Site.Name}}</span> <span id="console-status" class="badge muted">conectando…</span></h1>
+  <h1>{{icon "terminal"}} Consola <span class="muted small">{{.Site.Name}}</span> <span id="console-status" class="badge muted">conectando…</span></h1>
   <div class="actions">
     {{if .Root}}<a class="button" href="/sites/{{.Site.ID}}/console">Usuario de la app</a><span class="badge err">root</span>
     {{else}}<a class="button" href="/sites/{{.Site.ID}}/console?user=root">Abrir como root</a>{{end}}

@@ -1,15 +1,16 @@
 {{define "title"}}{{if .New}}Nuevo sitio{{else}}Editar {{.Site.Name}}{{end}}{{end}}
 {{define "content"}}
-<p class="crumbs"><a href="/">Sitios</a> / {{if .New}}Nuevo{{else}}<a href="/sites/{{.Site.ID}}">{{.Site.Name}}</a> / Editar{{end}}</p>
-<h1>{{if .New}}Nuevo sitio{{else}}Editar {{.Site.Name}}{{end}}</h1>
+<nav class="crumbs"><a href="/">Sitios</a>{{icon "chevron"}}{{if .New}}<span>Nuevo</span>{{else}}<a href="/sites/{{.Site.ID}}">{{.Site.Name}}</a>{{icon "chevron"}}<span>Editar</span>{{end}}</nav>
+<div class="page-head"><div><h1>{{if .New}}Nuevo sitio{{else}}Editar {{.Site.Name}}{{end}}</h1>
+  <p class="sub">{{if .New}}Publica un repositorio de GitHub con su dominio y SSL.{{else}}Los cambios se aplican en el próximo deploy.{{end}}</p></div></div>
 
-{{if .Errors}}<div class="flash error"><ul>{{range .Errors}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+{{if .Errors}}<div class="flash error">{{icon "alert"}}<ul>{{range .Errors}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
 
-<form method="post" action="{{if .New}}/sites{{else}}/sites/{{.Site.ID}}{{end}}" class="card stack">
+<form method="post" action="{{if .New}}/sites{{else}}/sites/{{.Site.ID}}{{end}}" class="card form-sections">
   <input type="hidden" name="csrf" value="{{.CSRF}}">
 
+  <div class="section"><div class="section-head"><h3>General</h3><p>Nombre, repositorio de GitHub y rama que se publica.</p></div>
   <fieldset>
-    <legend>General</legend>
     <label>Nombre
       {{if .New}}<input name="name" value="{{.Site.Name}}" required pattern="[a-z0-9]([a-z0-9\-]{0,30}[a-z0-9])?" placeholder="mi-sitio">
       <small>Minúsculas, números y guiones. No se puede cambiar después.</small>
@@ -20,20 +21,20 @@
       <small>Privado: <code>git@github.com:usuario/repo.git</code> (se genera una deploy key). Público: <code>https://github.com/usuario/repo.git</code></small>
     </label>
     <label>Rama <input name="branch" value="{{.Site.Branch}}" required></label>
-    <label class="check"><input type="checkbox" name="auto_deploy" value="1"{{if .Site.AutoDeploy}} checked{{end}}> Deploy automático: revisar la rama cada minuto y desplegar cuando haya commits nuevos</label>
-  </fieldset>
+    <label class="check"><input type="checkbox" name="auto_deploy" value="1"{{if .Site.AutoDeploy}} checked{{end}}> <span>Deploy automático: revisar la rama cada minuto y desplegar cuando haya commits nuevos</span></label>
+  </fieldset></div>
 
+  <div class="section"><div class="section-head"><h3>Dominios</h3><p>Dominios y subdominios que responden con este sitio, con SSL automático.</p></div>
   <fieldset>
-    <legend>Dominios</legend>
     <label>Uno por línea (dominio principal, alias y subdominios)
       <textarea name="domains" rows="3" placeholder="miempresa.cl&#10;www.miempresa.cl&#10;api.miempresa.cl">{{join .Site.Domains "\n"}}</textarea>
       <small>Cada dominio debe tener un registro DNS tipo A apuntando a la IP de este servidor. El certificado SSL se emite solo.</small>
     </label>
-    <label class="check"><input type="checkbox" name="redirect_aliases" value="1"{{if .Site.RedirectAliases}} checked{{end}}> El primer dominio es el principal: los demás redirigen a él (301, conservando la ruta)</label>
-  </fieldset>
+    <label class="check"><input type="checkbox" name="redirect_aliases" value="1"{{if .Site.RedirectAliases}} checked{{end}}> <span>El primer dominio es el principal: los demás redirigen a él (301, conservando la ruta)</span></label>
+  </fieldset></div>
 
+  <div class="section"><div class="section-head"><h3>Datos y tareas programadas</h3><p>Lo que debe sobrevivir a cada deploy y las tareas que corren cada minuto.</p></div>
   <fieldset>
-    <legend>Datos y tareas programadas</legend>
     <label>Carpetas persistentes (una por línea)
       <textarea name="persist_paths" rows="2" class="mono" spellcheck="false" placeholder="/var/www/html/storage">{{join .Site.PersistPaths "\n"}}</textarea>
       <small>Se guardan en volúmenes de Docker y sobreviven a cada deploy (archivos subidos, logs, sesiones). En Laravel: <code>/var/www/html/storage</code>.
@@ -43,10 +44,10 @@
       <input name="cron_command" value="{{.Site.CronCommand}}" class="mono" placeholder="php artisan schedule:run">
       <small>En Laravel deja <code>php artisan schedule:run</code> y define las tareas en <code>routes/console.php</code>. Vacío = sin cron.</small>
     </label>
-  </fieldset>
+  </fieldset></div>
 
+  <div class="section"><div class="section-head"><h3>Tipo de aplicación</h3><p>Cómo se construye la imagen del sitio.</p></div>
   <fieldset>
-    <legend>Tipo de aplicación</legend>
     <label>Tipo
       <select name="kind">
         {{range .Kinds}}<option value="{{.Value}}"{{if eq .Value $.Site.Kind}} selected{{end}}>{{.Label}}</option>{{end}}
@@ -63,32 +64,32 @@
         <small>La imagen base ya trae: pdo_mysql, mbstring, curl, zip, opcache, redis, pcntl, entre otras.</small>
       </label>
     </div>
-    <label class="check"><input type="checkbox" name="build_assets" value="1"{{if .Site.BuildAssets}} checked{{end}}> Compilar assets con <code>npm run build</code> (si hay package.json)</label>
-    <label class="check"><input type="checkbox" name="autorun" value="1"{{if .Site.Autorun}} checked{{end}}> Laravel: ejecutar migraciones y cachés al iniciar (<code>migrate --force</code>, <code>optimize</code>)</label>
+    <label class="check"><input type="checkbox" name="build_assets" value="1"{{if .Site.BuildAssets}} checked{{end}}> <span>Compilar assets con <code>npm run build</code> (si hay package.json)</span></label>
+    <label class="check"><input type="checkbox" name="autorun" value="1"{{if .Site.Autorun}} checked{{end}}> <span>Laravel: ejecutar migraciones y cachés al iniciar (<code>migrate --force</code>, <code>optimize</code>)</span></label>
     <label>Puerto interno <small>(solo para tipo "Dockerfile propio")</small>
       <input name="port" type="number" min="1" max="65535" value="{{.Site.Port}}">
     </label>
-  </fieldset>
+  </fieldset></div>
 
+  <div class="section"><div class="section-head"><h3>Variables de ambiente</h3><p>El .env de la aplicación, guardado cifrado.</p></div>
   <fieldset>
-    <legend>Variables de ambiente</legend>
     <label>Formato .env
       <textarea name="env" rows="12" class="mono" spellcheck="false" placeholder="APP_ENV=production&#10;APP_KEY=base64:...&#10;APP_URL=https://miempresa.cl&#10;DB_HOST=...">{{.Env}}</textarea>
       <small>Se guardan cifradas. Se aplican en el próximo deploy.</small>
     </label>
-  </fieldset>
+  </fieldset></div>
 
+  <div class="section"><div class="section-head"><h3>Recursos</h3><p>Límites para que un sitio no afecte a los demás.</p></div>
   <fieldset>
-    <legend>Recursos</legend>
     <div class="cols">
       <label>Límite de RAM (MB) <input name="memory_mb" type="number" min="0" step="64" value="{{.Site.MemoryMB}}"><small>0 = sin límite</small></label>
       <label>Límite de CPU <input name="cpus" type="number" min="0" step="0.25" value="{{.Site.CPUs}}"><small>Ej: 0.5 = media CPU. 0 = sin límite</small></label>
     </div>
-  </fieldset>
+  </fieldset></div>
 
-  <div class="actions">
-    <button type="submit" class="primary">{{if .New}}Crear sitio{{else}}Guardar cambios{{end}}</button>
-    <a class="button" href="{{if .New}}/{{else}}/sites/{{.Site.ID}}{{end}}">Cancelar</a>
+  <div class="form-foot">
+    <a class="button ghost" href="{{if .New}}/{{else}}/sites/{{.Site.ID}}{{end}}">Cancelar</a>
+    <button type="submit" class="primary">{{if .New}}{{icon "plus"}} Crear sitio{{else}}{{icon "check"}} Guardar cambios{{end}}</button>
   </div>
 </form>
 {{end}}

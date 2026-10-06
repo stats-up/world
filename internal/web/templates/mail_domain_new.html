@@ -1,0 +1,25 @@
+{{define "title"}}Nuevo dominio · Correo{{end}}
+{{define "content"}}
+<nav class="crumbs"><a href="/mail">Correo</a>{{icon "chevron"}}<span>Nuevo dominio</span></nav>
+<div class="page-head"><div><h1>Nuevo dominio de correo</h1>
+  <p class="sub">Stalwart crea el certificado y las llaves DKIM, y publica sus registros en Cloudflare.</p></div></div>
+
+{{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+<form method="post" action="/mail/domains" class="card stack">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <div class="cols">
+    <label>Dominio<input name="name" value="{{.Form.name}}" placeholder="frikiforja.cl" required autofocus autocomplete="off"></label>
+    <label>Zona DNS en Cloudflare (opcional)<input name="origin" value="{{.Form.origin}}" placeholder="automática" autocomplete="off">
+      <small>Solo para subdominios: ej. <code>frikiforja.cl</code> para <code>prueba.frikiforja.cl</code>.</small></label>
+  </div>
+  <label>Descripción (opcional)<input name="description" value="{{.Form.description}}" placeholder="Cliente, notas…"></label>
+  <fieldset>
+    <legend>Modo</legend>
+    <label class="check"><input type="radio" name="mode" value="migration"{{if ne .Form.mode "active"}} checked{{end}}> <span><strong>Migración</strong><br><small>El correo sigue llegando al servidor actual (cPanel). Solo se publica el DKIM. Úsalo para crear los buzones y copiar los correos antes del corte.</small></span></label>
+    <label class="check"><input type="radio" name="mode" value="active"{{if eq .Form.mode "active"}} checked{{end}}> <span><strong>Activo</strong><br><small>Este servidor recibe el correo: Stalwart publica el MX hacia <code>{{.Hostname}}</code> en Cloudflare.</small></span></label>
+  </fieldset>
+  <p class="note">El dominio (o su zona padre) debe estar en Cloudflare y el token de Ajustes → Correo debe tener acceso a esa zona.
+    El SPF y el DMARC no se tocan: la pestaña DNS del dominio te muestra qué valores poner.</p>
+  <div class="actions"><button type="submit" class="primary">{{icon "plus"}} Agregar dominio</button><a class="button ghost" href="/mail">Cancelar</a></div>
+</form>
+{{end}}

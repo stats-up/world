@@ -1,18 +1,18 @@
 {{define "usage_table"}}{{if or .Sites .Services}}
-<table class="table sortable usage">
-  <thead><tr><th data-sort="text">Nombre</th><th data-sort="num">CPU</th><th data-sort="num">RAM</th><th data-sort="num">Red</th><th data-sort="num">Reinicios</th></tr></thead>
+<div class="table-wrap"><table class="table sortable usage">
+  <thead><tr><th data-sort="text">Nombre</th><th data-sort="num">CPU</th><th data-sort="num">RAM</th><th data-sort="num" class="hide-sm">Red</th><th data-sort="num" class="hide-sm">Reinicios</th></tr></thead>
   <tbody>
   {{range .Sites}}{{template "usage_row" .}}{{end}}
   {{range .Services}}{{template "usage_row" .}}{{end}}
   </tbody>
-</table>
-<p class="muted small">CPU en % del servidor completo. Minigráficos: últimas 24 h.</p>
-{{else}}<p class="muted">No hay contenedores en marcha.</p>{{end}}{{end}}
+</table></div>
+<p class="muted small table-note">CPU en % del servidor completo. Minigráficos: últimas 24 h.</p>
+{{else}}<p class="empty-state">No hay contenedores en marcha.</p>{{end}}{{end}}
 
 {{define "usage_row"}}<tr>
   <td data-v="{{.Name}}">{{if eq (slice .Key 0 1) "@"}}{{.Name}} <span class="badge muted">servicio</span>{{else}}<a href="/sites/{{.SiteID}}">{{.Name}}</a>{{end}}</td>
   <td data-v="{{.CPU}}"><strong>{{.CPUText}}</strong>{{.CPUSpark}}</td>
   <td data-v="{{.Mem}}"><strong>{{.MemText}}</strong>{{with .LimitText}} <span class="muted small">de {{.}}</span>{{end}}{{if .OOMKills}} <span class="badge err" title="Procesos terminados por falta de memoria desde que inició el contenedor">{{.OOMKills}} sin memoria</span>{{end}}{{.MemSpark}}</td>
-  <td data-v="{{.NetRx}}" class="small">{{.NetText}}</td>
-  <td data-v="{{.Restarts}}">{{.Restarts}}</td>
+  <td data-v="{{.NetRx}}" class="small hide-sm">{{.NetText}}</td>
+  <td data-v="{{.Restarts}}" class="hide-sm">{{.Restarts}}</td>
 </tr>{{end}}

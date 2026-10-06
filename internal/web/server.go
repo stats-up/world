@@ -83,7 +83,23 @@ var funcs = template.FuncMap{
 		return t.Format("2006-01-02 15:04")
 	},
 	"join": strings.Join,
-	"gb":   func(b int64) string { return strconv.FormatFloat(float64(b)/(1<<30), 'f', 1, 64) + " GB" },
+	"icon": icon,
+	// bar dibuja una barra de porcentaje en SVG (la CSP no permite style="width:…").
+	"bar": func(pct int) template.HTML { return monBar{Pct: float64(pct), Level: level(float64(pct))}.Bar() },
+	// navOn marca la sección activa del menú ("/" solo coincide con el dashboard y los sitios).
+	"navOn": func(path, prefix string) bool {
+		if prefix == "/" {
+			return path == "/" || strings.HasPrefix(path, "/sites") || strings.HasPrefix(path, "/deployments")
+		}
+		return strings.HasPrefix(path, prefix)
+	},
+	"initial": func(s string) string {
+		for _, r := range s {
+			return strings.ToUpper(string(r))
+		}
+		return "?"
+	},
+	"gb": func(b int64) string { return strconv.FormatFloat(float64(b)/(1<<30), 'f', 1, 64) + " GB" },
 	"short": func(s string) string {
 		if len(s) > 12 {
 			return s[:12]
@@ -116,6 +132,10 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	static, _ := fs.Sub(assets, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(static))))
+	mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		http.ServeFileFS(w, r, assets, "static/favicon.ico")
+	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok " + s.version)) })
 	mux.HandleFunc("GET /health", s.health)
 
@@ -146,10 +166,12 @@ func (s *Server) Handler() http.Handler {
 	priv("POST /settings", s.settingsSubmit)
 	priv("POST /settings/mail", s.mailSettingsSubmit)
 	priv("GET /mail", s.mailIndex)
+	priv("GET /mail/domains/new", s.mailDomainNew)
 	priv("POST /mail/domains", s.mailDomainCreate)
 	priv("GET /mail/domains/{id}", s.mailDomainShow)
 	priv("POST /mail/domains/{id}/mode", s.mailDomainMode)
 	priv("POST /mail/domains/{id}/delete", s.mailDomainDelete)
+	priv("GET /mail/domains/{id}/accounts/new", s.mailAccountNew)
 	priv("POST /mail/domains/{id}/accounts", s.mailAccountCreate)
 	priv("GET /mail/domains/{id}/accounts/{aid}", s.mailAccountShow)
 	priv("POST /mail/domains/{id}/accounts/{aid}", s.mailAccountUpdate)
@@ -256,6 +278,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, d d
 		d = data{}
 	}
 	d["Version"] = s.version
+	d["Path"] = r.URL.Path
 	d["User"] = currentUser(r)
 	if sess := currentSession(r); sess != nil {
 		d["CSRF"] = sess.CSRF

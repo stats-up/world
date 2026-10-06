@@ -1,86 +1,95 @@
 {{define "title"}}{{.Domain.Name}} · Correo{{end}}
 {{define "content"}}
-<p class="crumbs"><a href="/mail">Correo</a> /</p>
-<div class="row">
-  <h1>{{.Domain.Name}} {{if .Domain.Active}}<span class="badge ok">activo</span>{{else}}<span class="badge warn">migración</span>{{end}}</h1>
-</div>
-{{with .Domain.Description}}<p class="muted">{{.}}</p>{{end}}
-
-<section class="card">
-  <div class="row">
-    <h2>Buzones</h2>
-    <span class="muted small">{{len .Accounts}} buzón(es)</span>
+<nav class="crumbs"><a href="/mail">Correo</a>{{icon "chevron"}}<span>{{.Domain.Name}}</span></nav>
+<div class="page-head">
+  <div class="page-title">
+    <span class="avatar">{{initial .Domain.Name}}</span>
+    <div>
+      <h1>{{.Domain.Name}} {{if .Domain.Active}}<span class="badge ok">activo</span>{{else}}<span class="badge warn">migración</span>{{end}}</h1>
+      <p class="sub">{{with .Domain.Description}}{{.}} · {{end}}{{len .Accounts}} buzón{{if ne (len .Accounts) 1}}es{{end}}</p>
+    </div>
   </div>
+  <div class="actions"><a class="button primary" href="/mail/domains/{{.Domain.ID}}/accounts/new">{{icon "plus"}} Nuevo buzón</a></div>
+</div>
+
+<nav class="tabbar">
+  <a href="/mail/domains/{{.Domain.ID}}"{{if eq .Tab "buzones"}} class="active" aria-current="page"{{end}}>{{icon "inbox"}} Buzones</a>
+  <a href="/mail/domains/{{.Domain.ID}}?tab=dns"{{if eq .Tab "dns"}} class="active" aria-current="page"{{end}}>{{icon "dns"}} Registros DNS</a>
+  <a href="/mail/domains/{{.Domain.ID}}?tab=ajustes"{{if eq .Tab "ajustes"}} class="active" aria-current="page"{{end}}>{{icon "settings"}} Ajustes</a>
+</nav>
+
+{{if eq .Tab "buzones"}}
   {{if .Accounts}}
-  <table class="table">
-    <thead><tr><th>Dirección</th><th>Alias</th><th>Espacio</th></tr></thead>
-    <tbody>
-    {{range .Accounts}}
-      <tr>
-        <td><a href="/mail/domains/{{$.Domain.ID}}/accounts/{{.ID}}"><strong>{{.Email}}</strong></a>{{with .Description}}<br><small>{{.}}</small>{{end}}</td>
-        <td class="small">{{range $i, $a := .Aliases}}{{if $i}}, {{end}}{{$a}}{{end}}</td>
-        <td class="small quota">
-          {{if .Quota}}
-            <meter min="0" max="100" low="75" high="90" optimum="0" value="{{.UsedPercent}}">{{.UsedPercent}}%</meter>
-            {{gb .Used}} de {{gb .Quota}}
-          {{else}}{{gb .Used}} (sin límite){{end}}
-        </td>
-      </tr>
-    {{end}}
-    </tbody>
-  </table>
+  <section class="card flush">
+    <div class="row">
+      <label class="search">{{icon "search"}}<input type="search" placeholder="Buscar buzón o alias…" data-filter="#accounts" aria-label="Buscar buzón"></label>
+    </div>
+    <div class="table-wrap">
+    <table class="table" id="accounts">
+      <thead><tr><th>Dirección</th><th class="hide-sm">Alias</th><th>Espacio</th><th></th></tr></thead>
+      <tbody>
+      {{range .Accounts}}
+        <tr data-href="/mail/domains/{{$.Domain.ID}}/accounts/{{.ID}}">
+          <td><div class="cell-main"><span class="avatar sm">{{initial .Name}}</span>
+            <div class="ellipsis"><a href="/mail/domains/{{$.Domain.ID}}/accounts/{{.ID}}">{{.Email}}</a>{{with .Description}}<small>{{.}}</small>{{end}}</div></div></td>
+          <td class="small hide-sm">{{range $i, $a := .Aliases}}{{if $i}}, {{end}}{{$a}}{{else}}<span class="muted">—</span>{{end}}</td>
+          <td class="small quota">
+            {{if .Quota}}{{bar .UsedPercent}}{{gb .Used}} de {{gb .Quota}}
+            {{else}}{{gb .Used}} <span class="muted">· sin límite</span>{{end}}
+          </td>
+          <td class="num muted">{{icon "chevron"}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+    </div>
+    <p id="accounts-empty" class="empty-state small" hidden>Ningún buzón coincide con la búsqueda.</p>
+  </section>
   {{else}}
-  <p class="muted">Sin buzones todavía.</p>
+  <div class="card empty-state">
+    {{icon "inbox"}}
+    <strong>Sin buzones todavía</strong>
+    <p>Crea el primer buzón de {{.Domain.Name}}.</p>
+    <div class="actions"><a class="button primary" href="/mail/domains/{{.Domain.ID}}/accounts/new">{{icon "plus"}} Nuevo buzón</a></div>
+  </div>
   {{end}}
+{{end}}
 
-  <form method="post" action="/mail/domains/{{.Domain.ID}}/accounts" class="stack spaced">
-    <input type="hidden" name="csrf" value="{{.CSRF}}">
-    <h2>Crear buzón</h2>
-    <div class="cols">
-      <label>Dirección
-        <span class="inline-form"><input name="name" placeholder="ventas" required autocomplete="off"> <span class="muted">@{{.Domain.Name}}</span></span>
-      </label>
-      <label>Cuota (GB)<input name="quota_gb" value="{{.DefaultQuotaGB}}" inputmode="decimal"><small>0 = sin límite.</small></label>
-    </div>
-    <div class="cols">
-      <label>Nombre o descripción (opcional)<input name="description" placeholder="Juan Pérez"></label>
-      <label>Alias (opcional)<input name="aliases" placeholder="contacto, info"><small>Otras direcciones de {{.Domain.Name}} que llegan a este buzón.</small></label>
-    </div>
-    <div class="actions"><button type="submit" class="primary">Crear buzón</button>
-      <span class="small muted">La contraseña se genera y se muestra una sola vez.</span></div>
-  </form>
-</section>
-
+{{if eq .Tab "dns"}}
 <section class="card">
   <div class="row">
     <h2>Registros DNS</h2>
-    {{if .Pending}}<span class="badge warn">{{.Pending}} pendiente(s)</span>{{else}}<span class="badge ok">todo en orden</span>{{end}}
+    {{if .Pending}}<span class="badge warn">{{.Pending}} pendiente{{if ne .Pending 1}}s{{end}}</span>{{else if .Records}}<span class="badge ok">todo en orden</span>{{end}}
   </div>
   <p class="small muted">Verificados ahora en el DNS público (1.1.1.1). Stalwart publica solo los registros de su modo
   ({{if .Domain.Active}}MX, DKIM y autoconfiguración{{else}}DKIM{{end}}) en la zona <code>{{if .Domain.Origin}}{{.Domain.Origin}}{{else}}{{.Domain.Name}}{{end}}</code>.
   El SPF y el DMARC se crean a mano en Cloudflare, combinándolos con los que ya existan. Todos los registros de correo van con <strong>nube gris</strong>.</p>
   {{if .Records}}
+  <div class="table-wrap">
   <table class="table">
     <thead><tr><th>Estado</th><th>Tipo</th><th>Nombre</th><th>Valor esperado</th></tr></thead>
     <tbody>
     {{range .Records}}
       <tr>
-        <td>{{if eq .Status "ok"}}<span class="badge ok">✓ ok</span>{{else if eq .Status "distinto"}}<span class="badge warn">distinto</span>{{else if eq .Status "falta"}}<span class="badge err">falta</span>{{else}}<span class="badge muted">error</span>{{end}}</td>
-        <td>{{.Type}}</td>
+        <td>{{if eq .Status "ok"}}<span class="badge ok">ok</span>{{else if eq .Status "distinto"}}<span class="badge warn">distinto</span>{{else if eq .Status "falta"}}<span class="badge err">falta</span>{{else}}<span class="badge muted">error</span>{{end}}</td>
+        <td><strong>{{.Type}}</strong></td>
         <td class="mono small">{{.Name}}</td>
         <td><code>{{.Value}}</code>{{with .Note}}<br><small>{{.}}</small>{{end}}{{with .Found}}<br><small>Publicado: <code>{{.}}</code></small>{{end}}</td>
       </tr>
     {{end}}
     </tbody>
   </table>
+  </div>
   {{else}}
-  <p class="muted">Stalwart todavía no genera los registros (las llaves DKIM tardan 1–2 minutos). Recarga en un momento.</p>
-  {{end}}
-  {{if not .Domain.Active}}
-  <p class="small muted">En migración, el MX sigue apuntando al servidor actual. Ojo: los correos que envíen los buzones de este servidor a direcciones de {{.Domain.Name}} se entregan aquí, no en el servidor actual.</p>
+  <p class="note">Stalwart todavía no genera los registros (las llaves DKIM tardan 1–2 minutos). Recarga en un momento.</p>
   {{end}}
 </section>
+{{if not .Domain.Active}}
+<p class="note">En migración, el MX sigue apuntando al servidor actual. Ojo: los correos que envíen los buzones de este servidor a direcciones de {{.Domain.Name}} se entregan aquí, no en el servidor actual.</p>
+{{end}}
+{{end}}
 
+{{if eq .Tab "ajustes"}}
 <section class="card">
   <h2>Modo</h2>
   {{if .Domain.Active}}
@@ -108,7 +117,7 @@
 </section>
 
 <section class="card danger">
-  <h2>Eliminar dominio</h2>
+  <h2>{{icon "trash"}} Eliminar dominio</h2>
   <p class="muted small">Primero elimina sus buzones. Se borran sus llaves DKIM y su certificado del servidor.</p>
   <form method="post" action="/mail/domains/{{.Domain.ID}}/delete"
         data-confirm="¿Eliminar el dominio {{.Domain.Name}}?"
@@ -116,6 +125,8 @@
         data-confirm-button="Sí, eliminar el dominio">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
     <button type="submit" class="danger"{{if .Accounts}} disabled title="Tiene buzones"{{end}}>Eliminar dominio</button>
+    {{if .Accounts}}<small>Tiene {{len .Accounts}} buzón{{if ne (len .Accounts) 1}}es{{end}}: elimínalos primero.</small>{{end}}
   </form>
 </section>
+{{end}}
 {{end}}

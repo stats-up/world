@@ -1,48 +1,46 @@
 {{define "title"}}Correo{{end}}
 {{define "content"}}
-<div class="row"><h1>Correo</h1></div>
+<div class="page-head">
+  <div>
+    <h1>Correo</h1>
+    <p class="sub">Dominios de correo y sus buzones. Elige un dominio para ver y administrar sus buzones.</p>
+  </div>
+  {{if .Domains}}<div class="actions"><a class="button primary" href="/mail/domains/new">{{icon "plus"}} Nuevo dominio</a></div>{{end}}
+</div>
 
 {{if .Disabled}}
-<div class="card empty">El servidor de correo está desactivado. Actívalo en <a href="/settings#correo">Ajustes → Correo</a>.</div>
+<div class="card empty-state">
+  {{icon "mail"}}
+  <strong>El servidor de correo está desactivado</strong>
+  <p>Configúralo y actívalo en Ajustes para administrar dominios y buzones.</p>
+  <div class="actions"><a class="button primary" href="/settings#correo">{{icon "settings"}} Ir a Ajustes → Correo</a></div>
+</div>
 {{else if .Error}}
-<div class="flash error">{{.Error}}</div>
-{{else}}
-
-{{if .Domains}}
-<table class="table">
-  <thead><tr><th>Dominio</th><th>Modo</th><th>Buzones</th><th>Zona DNS</th></tr></thead>
-  <tbody>
+<div class="flash error">{{icon "alert"}}<div>{{.Error}}</div></div>
+{{else if .Domains}}
+<div class="tiles">
   {{range .Domains}}
-    <tr>
-      <td><a href="/mail/domains/{{.ID}}"><strong>{{.Name}}</strong></a>{{with .Description}}<br><small>{{.}}</small>{{end}}</td>
-      <td>{{if .Active}}<span class="badge ok">activo</span>{{else}}<span class="badge warn">migración</span>{{end}}</td>
-      <td>{{.Accounts}}</td>
-      <td class="muted">{{if .Origin}}{{.Origin}}{{else}}{{.Name}}{{end}}</td>
-    </tr>
+  <a class="tile" href="/mail/domains/{{.ID}}">
+    <div class="tile-head">
+      <span class="avatar">{{initial .Name}}</span>
+      <span class="ellipsis"><strong class="ellipsis">{{.Name}}</strong>{{with .Description}}<small class="ellipsis">{{.}}</small>{{end}}</span>
+      {{icon "chevron"}}
+    </div>
+    <div class="tile-meta">
+      {{if .Active}}<span class="badge ok">activo</span>{{else}}<span class="badge warn">migración</span>{{end}}
+      <span>{{icon "inbox"}} {{.Accounts}} buzón{{if ne .Accounts 1}}es{{end}}</span>
+      {{with .Origin}}<span title="Zona DNS en Cloudflare">{{icon "dns"}} {{.}}</span>{{end}}
+    </div>
+  </a>
   {{end}}
-  </tbody>
-</table>
+  <a class="tile add" href="/mail/domains/new">{{icon "plus" "lg"}} Agregar dominio</a>
+</div>
 {{else}}
-<div class="card empty">Todavía no hay dominios de correo.</div>
-{{end}}
-
-<form method="post" action="/mail/domains" class="card stack">
-  <input type="hidden" name="csrf" value="{{.CSRF}}">
-  <h2>Agregar dominio</h2>
-  <p class="small muted">Stalwart crea el certificado y las llaves DKIM, y publica sus registros en Cloudflare: el dominio (o su zona padre) debe estar en Cloudflare
-  y el token de Ajustes → Correo debe tener acceso a esa zona. El SPF y el DMARC no se tocan: el detalle del dominio te muestra qué valores poner.</p>
-  <div class="cols">
-    <label>Dominio<input name="name" placeholder="frikiforja.cl" required></label>
-    <label>Zona DNS en Cloudflare (opcional)<input name="origin" placeholder="automática">
-      <small>Solo para subdominios: ej. <code>frikiforja.cl</code> para <code>prueba.frikiforja.cl</code>.</small></label>
-  </div>
-  <label>Descripción (opcional)<input name="description" placeholder="Cliente, notas…"></label>
-  <fieldset>
-    <legend>Modo</legend>
-    <label class="check"><input type="radio" name="mode" value="migration" checked> <span><strong>Migración</strong>: el correo sigue llegando al servidor actual (cPanel). Solo se publica el DKIM. Úsalo para crear los buzones y copiar los correos antes del corte.</span></label>
-    <label class="check"><input type="radio" name="mode" value="active"> <span><strong>Activo</strong>: este servidor recibe el correo. Stalwart publica el MX hacia <code>{{.Hostname}}</code> en Cloudflare.</span></label>
-  </fieldset>
-  <div class="actions"><button type="submit" class="primary">Agregar dominio</button></div>
-</form>
+<div class="card empty-state">
+  {{icon "mail"}}
+  <strong>Todavía no hay dominios de correo</strong>
+  <p>Agrega el primero para crear sus buzones.</p>
+  <div class="actions"><a class="button primary" href="/mail/domains/new">{{icon "plus"}} Nuevo dominio</a></div>
+</div>
 {{end}}
 {{end}}

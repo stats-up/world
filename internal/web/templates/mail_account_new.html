@@ -1,0 +1,21 @@
+{{define "title"}}Nuevo buzón · {{.Domain.Name}}{{end}}
+{{define "content"}}
+<nav class="crumbs"><a href="/mail">Correo</a>{{icon "chevron"}}<a href="/mail/domains/{{.Domain.ID}}">{{.Domain.Name}}</a>{{icon "chevron"}}<span>Nuevo buzón</span></nav>
+<div class="page-head"><div><h1>Nuevo buzón</h1><p class="sub">La contraseña se genera y se muestra una sola vez al crearlo.</p></div></div>
+
+{{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+<form method="post" action="/mail/domains/{{.Domain.ID}}/accounts" class="card stack">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <div class="cols">
+    <label>Dirección
+      <span class="input-suffix"><input name="name" value="{{.Form.name}}" placeholder="ventas" required autofocus autocomplete="off"><span>@{{.Domain.Name}}</span></span>
+    </label>
+    <label>Cuota (GB)<input name="quota_gb" value="{{.Form.quota_gb}}" inputmode="decimal"><small>0 = sin límite.</small></label>
+  </div>
+  <div class="cols">
+    <label>Nombre o descripción (opcional)<input name="description" value="{{.Form.description}}" placeholder="Juan Pérez"></label>
+    <label>Alias (opcional)<input name="aliases" value="{{.Form.aliases}}" placeholder="contacto, info"><small>Otras direcciones de {{.Domain.Name}} que llegan a este buzón.</small></label>
+  </div>
+  <div class="actions"><button type="submit" class="primary">{{icon "plus"}} Crear buzón</button><a class="button ghost" href="/mail/domains/{{.Domain.ID}}">Cancelar</a></div>
+</form>
+{{end}}

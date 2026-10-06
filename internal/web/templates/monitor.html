@@ -1,15 +1,15 @@
 {{define "title"}}Monitoreo{{end}}
-{{define "head"}}<script src="/static/sort.js" defer></script>{{end}}
+{{define "head"}}<script src="/static/sort.js?v={{.Version}}" defer></script>{{end}}
 {{define "content"}}
-<div class="row">
-  <h1>Monitoreo</h1>
+<div class="page-head">
+  <div><h1>Monitoreo</h1><p class="sub">Uso del servidor y de cada sitio. Se mide cada 30 segundos.</p></div>
   <nav class="tabs">{{range .Ranges}}<a href="/monitor?range={{.Key}}"{{if eq .Key $.Range.Key}} class="active" aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
 </div>
 
 {{template "monitor_host" .Mon}}
 
 <section class="card">
-  <h2>Historial del servidor · {{.Range.Label}}</h2>
+  <h2>{{icon "clock"}} Historial del servidor · {{.Range.Label}}</h2>
   {{with .Error}}<div class="flash error">{{.}}</div>{{end}}
   {{with .Charts}}
   <div class="charts">
@@ -20,8 +20,8 @@
   {{end}}
 </section>
 
-<section class="card">
-  <h2>Sitios y servicios ahora</h2>
+<section class="card flush">
+  <div class="row"><h2>{{icon "sites"}} Sitios y servicios ahora</h2></div>
   {{template "usage_table" .Mon}}
 </section>
 {{end}}

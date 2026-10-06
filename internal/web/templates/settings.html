@@ -1,9 +1,10 @@
 {{define "title"}}Ajustes{{end}}
 {{define "content"}}
-<h1>Ajustes</h1>
-{{with .Error}}<div class="flash error">{{.}}</div>{{end}}
+<div class="page-head"><div><h1>Ajustes</h1><p class="sub">Dominio del panel, certificados y servidor de correo.</p></div></div>
+{{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
 
 <form method="post" action="/settings" class="card stack">
+  <h2>{{icon "lock"}} Panel</h2>
   <input type="hidden" name="csrf" value="{{.CSRF}}">
   <fieldset>
     <legend>Dominio del panel</legend>
@@ -27,7 +28,7 @@
 <form method="post" action="/settings/mail" class="card stack" id="correo" autocomplete="off">
   <input type="hidden" name="csrf" value="{{$.CSRF}}">
   <div class="row">
-    <h2>Correo (Stalwart)</h2>
+    <h2>{{icon "mail"}} Correo (Stalwart)</h2>
     {{with $.MailStatus}}
       {{if .OK}}<span class="badge ok">{{.State}}{{with .Health}} · {{.}}{{end}}</span>
       {{else if eq .State "no instalado"}}<span class="badge muted">no instalado</span>
@@ -68,7 +69,7 @@
     </label>
   </fieldset>
   <fieldset>
-    <label class="check"><input type="checkbox" name="enabled" value="1"{{if .Enabled}} checked{{end}}> Correo activado</label>
+    <label class="check"><input type="checkbox" name="enabled" value="1"{{if .Enabled}} checked{{end}}> <span>Correo activado</span></label>
     {{if and (not .Enabled) .Missing}}<small>Para activarlo falta: {{.Missing}}.</small>{{end}}
   </fieldset>
   <div class="actions"><button type="submit" class="primary">Guardar correo</button></div>

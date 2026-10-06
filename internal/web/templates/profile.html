@@ -1,11 +1,11 @@
 {{define "title"}}Perfil{{end}}
 {{define "content"}}
-<h1>Perfil</h1>
-<p class="muted">{{.User.Email}}</p>
+<div class="page-head"><div class="page-title"><span class="avatar">{{icon "user"}}</span>
+  <div><h1>Perfil</h1><p class="sub">{{.User.Email}}</p></div></div></div>
 
 <div class="grid">
   <section class="card">
-    <h2>Cambiar contraseña</h2>
+    <h2>{{icon "key"}} Cambiar contraseña</h2>
     {{with .PwError}}<div class="flash error">{{.}}</div>{{end}}
     <form method="post" action="/profile/password" class="stack">
       <input type="hidden" name="csrf" value="{{.CSRF}}">
@@ -17,7 +17,7 @@
   </section>
 
   <section class="card">
-    <h2>Verificación en dos pasos (2FA)</h2>
+    <h2>{{icon "shield"}} Verificación en dos pasos (2FA)</h2>
     {{with .MFAError}}<div class="flash error">{{.}}</div>{{end}}
     {{if .User.TOTPEnabled}}
       <p><span class="badge ok">activado</span></p>

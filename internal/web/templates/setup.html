@@ -2,10 +2,10 @@
 {{define "content"}}
 <div class="card">
   <h1>Bienvenido a world</h1>
-  <p class="muted">Crea la cuenta de administrador. El código de instalación se mostró al final de <code>install.sh</code>.
+  <p class="muted small">Crea la cuenta de administrador. El código de instalación se mostró al final de <code>install.sh</code>.
   También puedes verlo en el servidor con:</p>
   <pre class="cmd">sudo cat {{.TokenPath}}</pre>
-  {{with .Error}}<div class="flash error">{{.}}</div>{{end}}
+  {{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
   <form method="post" action="/setup" class="stack">
     <label>Código de instalación <input name="token" required autocomplete="off"></label>
     <label>Email <input type="email" name="email" value="{{.Email}}" required autocomplete="username"></label>
