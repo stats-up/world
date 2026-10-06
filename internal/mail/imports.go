@@ -72,7 +72,8 @@ func (im *Importer) LogPath(id int64) string {
 // importArgs arma la línea de imapsync. Las contraseñas van por variables de ambiente
 // (IMAPSYNC_PASSWORD1/2), no en la línea de comandos.
 func importArgs(req ImportRequest, id int64) []string {
-	args := []string{"--host1", req.Host, "--port1", strconv.Itoa(req.Port), "--user1", req.User}
+	// La imagen no tiene ENTRYPOINT: el comando reemplaza al CMD, así que va el binario primero.
+	args := []string{"/usr/bin/imapsync", "--host1", req.Host, "--port1", strconv.Itoa(req.Port), "--user1", req.User}
 	if req.Port == 993 {
 		args = append(args, "--ssl1")
 	} else {

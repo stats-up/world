@@ -36,6 +36,9 @@ func TestParseImportLog(t *testing.T) {
 
 func TestImportArgs(t *testing.T) {
 	args := strings.Join(importArgs(ImportRequest{Email: "fernando.dc@statsup.cl", Host: "38.18.230.11", Port: 993, User: "fernando.dc@statsup.cl", Password: "nunca"}, 5), " ")
+	if !strings.HasPrefix(args, "/usr/bin/imapsync ") {
+		t.Error("falta el binario")
+	}
 	for _, want := range []string{"--host1 38.18.230.11", "--ssl1", "--host2 world-stalwart", "--user2 fernando.dc@statsup.cl%admin", "--logfile import-5.log", "--automap"} {
 		if !strings.Contains(args, want) {
 			t.Errorf("falta %q en %s", want, args)
