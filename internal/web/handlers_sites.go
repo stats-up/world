@@ -17,6 +17,7 @@ import (
 
 	"world/internal/deploy"
 	"world/internal/docker"
+	mailsrv "world/internal/mail"
 	"world/internal/store"
 )
 
@@ -46,7 +47,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	d := data{"Sites": sites, "PanelDomain": s.st.Setting("panel_domain"), "Health": s.healthStatus()}
+	d := data{"Sites": sites, "PanelDomain": s.st.Setting("panel_domain"), "Health": s.healthStatus(r.Context())}
 	if info, err := s.dc.Info(ctx); err == nil {
 		d["Docker"] = info
 		cs, _ := s.engine.Containers(ctx)
@@ -448,7 +449,8 @@ func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) settingsData(r *http.Request, domain, email, errMsg string) data {
-	d := data{"PanelDomain": domain, "ACMEEmail": email, "Error": errMsg, "Port": s.cfg.Port()}
+	d := data{"PanelDomain": domain, "ACMEEmail": email, "Error": errMsg, "Port": s.cfg.Port(),
+		"Mail": s.mailSettingsData(mailsrv.LoadSettings(s.st, s.box)), "MailStatus": s.mail.Status(r.Context())}
 	// Sugerencia para probar sin dominio propio: sslip.io resuelve "x.1-2-3-4.sslip.io" a 1.2.3.4.
 	host, _, err := net.SplitHostPort(r.Host)
 	if err != nil {

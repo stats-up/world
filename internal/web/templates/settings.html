@@ -22,4 +22,56 @@
   </fieldset>
   <div class="actions"><button type="submit" class="primary">Guardar</button></div>
 </form>
+
+{{with .Mail}}
+<form method="post" action="/settings/mail" class="card stack" id="correo" autocomplete="off">
+  <input type="hidden" name="csrf" value="{{$.CSRF}}">
+  <div class="row">
+    <h2>Correo (Stalwart)</h2>
+    {{with $.MailStatus}}
+      {{if .OK}}<span class="badge ok">{{.State}}{{with .Health}} · {{.}}{{end}}</span>
+      {{else if eq .State "no instalado"}}<span class="badge muted">no instalado</span>
+      {{else}}<span class="badge err">{{.State}}{{with .Health}} · {{.}}{{end}}{{if .OOM}} · sin memoria{{end}}</span>{{end}}
+    {{end}}
+  </div>
+  <p class="small muted">Un solo servidor de correo para todos los dominios. Publica los puertos 25, 465, 587 y 993 (ábrelos en el firewall de Lightsail, IPv4 e IPv6).
+  Los campos secretos no se muestran: déjalos vacíos para conservar el valor guardado.</p>
+  <fieldset>
+    <label>Nombre del servidor
+      <input name="hostname" value="{{.Hostname}}" placeholder="mx.statsup.cl" required>
+      <small>Debe tener un registro A a la IP del servidor (nube gris) y coincidir con el DNS inverso (PTR) de la IP.</small>
+    </label>
+  </fieldset>
+  <fieldset>
+    <legend>Bucket para correos y adjuntos {{if .HasS3}}<span class="badge ok">llaves guardadas</span>{{end}}</legend>
+    <div class="cols">
+      <label>Bucket (São Paulo)<input name="s3_bucket" value="{{.S3Bucket}}" placeholder="statsup"></label>
+      <label>Prefijo<input name="s3_prefix" value="{{.S3Prefix}}" placeholder="mail/"></label>
+    </div>
+    <div class="cols">
+      <label>Access key ID<input name="s3_access_key" placeholder="{{if .HasS3}}(guardada){{end}}"></label>
+      <label>Secret access key<input type="password" name="s3_secret_key" placeholder="{{if .HasS3}}(guardada){{end}}" autocomplete="new-password"></label>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>Certificados {{if .HasCF}}<span class="badge ok">token guardado</span>{{end}}</legend>
+    <label>Token de API de Cloudflare
+      <input type="password" name="cf_token" placeholder="{{if .HasCF}}(guardado){{end}}" autocomplete="new-password">
+      <small>Permisos Zone → DNS → Edit y Zone → Zone → Read, filtrado a la IP del servidor. Se usa para los certificados (DNS-01).</small>
+    </label>
+  </fieldset>
+  <fieldset>
+    <legend>Administrador de Stalwart {{if .HasAdmin}}<span class="badge ok">contraseña guardada</span>{{end}}</legend>
+    <label>Contraseña del usuario <code>{{.AdminUser}}</code>
+      <input type="password" name="admin_secret" minlength="16" placeholder="{{if .HasAdmin}}(guardada){{end}}" autocomplete="new-password">
+      <small>Elígela tú (mínimo 16 caracteres) y guárdala en tu gestor de contraseñas. La usa world para administrar Stalwart y tú para su consola (por túnel SSH).</small>
+    </label>
+  </fieldset>
+  <fieldset>
+    <label class="check"><input type="checkbox" name="enabled" value="1"{{if .Enabled}} checked{{end}}> Correo activado</label>
+    {{if and (not .Enabled) .Missing}}<small>Para activarlo falta: {{.Missing}}.</small>{{end}}
+  </fieldset>
+  <div class="actions"><button type="submit" class="primary">Guardar correo</button></div>
+</form>
+{{end}}
 {{end}}

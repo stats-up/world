@@ -168,6 +168,25 @@ El panel expone `https://tu-panel/health` (sin login) con el estado de los proce
 
 Responde **HTTP 503** si alguno lleva varios minutos sin correr. Puedes apuntar un monitor externo gratuito (por ejemplo UptimeRobot) a esa URL para que te avise. El mismo estado aparece en el dashboard del panel.
 
+## Correo (Stalwart)
+
+En construcción. En **Ajustes → Correo** se activa un servidor de correo [Stalwart](https://stalw.art)
+(contenedor `world-stalwart`, versión fija, límite de 1 GB de RAM) que atiende todos los dominios.
+
+- Publica los puertos `25`, `465`, `587` y `993`: ábrelos en el firewall de Lightsail (IPv4 e IPv6).
+- El nombre del servidor (ej: `mx.statsup.cl`) necesita un registro A a la IP (nube gris en Cloudflare) y el **DNS inverso (PTR)** de la IP con ese mismo nombre. En Lightsail, el PTR y el desbloqueo del puerto 25 de salida se piden a AWS con el formulario *Request to remove email sending limitations*.
+- Los secretos (llaves del bucket, token de Cloudflare, contraseña del administrador) se guardan cifrados y se pasan al contenedor como variables de ambiente.
+- El HTTP de Stalwart (JMAP, administración) no se publica: queda en la red Docker `world` (`http://world-stalwart:8080`). Para usar su consola web:
+  1. En el servidor, mira la IP interna del contenedor:
+     ```bash
+     sudo docker inspect -f '{{.NetworkSettings.Networks.world.IPAddress}}' world-stalwart
+     ```
+  2. Desde tu computador, abre un túnel SSH con esa IP (ej: `172.18.0.5`) y entra a `http://localhost:8080/admin` con el usuario `admin`:
+     ```bash
+     ssh -L 8080:172.18.0.5:8080 ubuntu@IP-DEL-SERVIDOR
+     ```
+- Desactivar el correo quita el contenedor pero **conserva los datos** (volumen `world-stalwart-data`).
+
 ## Comandos útiles
 
 | Qué | Comando |
@@ -220,7 +239,9 @@ sudo rm -rf /etc/systemd/system/world*.service /etc/systemd/system/world-update.
 - [x] **Carpetas persistentes**, **cron por sitio** (`schedule:run`) y **redirección de alias** al dominio principal
 - [x] **Consola web** dentro de los contenedores (xterm.js)
 - [ ] **Fase 2:** comandos de release (migraciones, seeders), rollback, workers de colas, archivos de llaves y assets compartidos
-- [ ] **Dominios y correo:** DNS mediante API (registros automáticos al agregar dominios, certificados wildcard) y envío con Amazon SES (verificación de dominio, DKIM, SPF y DMARC automáticos, y credenciales `MAIL_*` para los sitios)
+- [ ] **Correo propio con Stalwart:** un solo servidor multi-dominio (SMTP, IMAP, JMAP) con adjuntos en un bucket S3, certificados por DNS-01 (Cloudflare) y envío directo
+  - [x] Contenedor `world-stalwart` administrado por el panel (Ajustes → Correo) y estado en `/health`
+  - [ ] Configuración por la API de Stalwart (bucket, puertos, certificados) y sección "Correo" con dominios y buzones
 - [ ] **Fase 3:** crons HTTP hacia APIs con historial, y bases de datos y usuarios en MySQL/MariaDB (RDS) desde el panel
 - [ ] **Fase 4:** monitoreo de recursos, registro de caídas con diagnóstico, alertas (email/Telegram) y recomendaciones de recursos
 

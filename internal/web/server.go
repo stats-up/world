@@ -20,6 +20,7 @@ import (
 	"world/internal/config"
 	"world/internal/deploy"
 	"world/internal/docker"
+	"world/internal/mail"
 	"world/internal/proxy"
 	"world/internal/secret"
 	"world/internal/store"
@@ -44,6 +45,7 @@ type Server struct {
 	poller  *deploy.Poller
 	cron    *deploy.Cron
 	proxy   *proxy.Manager
+	mail    *mail.Manager
 	version string
 
 	pages    map[string]*template.Template
@@ -51,8 +53,8 @@ type Server struct {
 	limiter  *limiter
 }
 
-func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, poller *deploy.Poller, cron *deploy.Cron, px *proxy.Manager, version string) (*Server, error) {
-	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, poller: poller, cron: cron, proxy: px, version: version,
+func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, poller *deploy.Poller, cron *deploy.Cron, px *proxy.Manager, mx *mail.Manager, version string) (*Server, error) {
+	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, poller: poller, cron: cron, proxy: px, mail: mx, version: version,
 		pages: map[string]*template.Template{}, limiter: newLimiter(10, 15*time.Minute)}
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
@@ -138,6 +140,7 @@ func (s *Server) Handler() http.Handler {
 	priv("GET /deployments/{id}/log", s.deploymentLog)
 	priv("GET /settings", s.settingsForm)
 	priv("POST /settings", s.settingsSubmit)
+	priv("POST /settings/mail", s.mailSettingsSubmit)
 	priv("GET /profile", s.profile)
 	priv("POST /profile/password", s.profilePassword)
 	priv("POST /profile/2fa/start", s.mfaStart)
