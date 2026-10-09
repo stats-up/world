@@ -26,7 +26,8 @@ func TestSettingsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	for k, v := range st {
-		if strings.HasSuffix(k, "_enc") && (strings.Contains(v, "SK") || strings.Contains(v, "admin-pass")) {
+		// Comparación exacta: el texto cifrado es base64 al azar y puede contener "SK" por casualidad.
+		if strings.HasSuffix(k, "_enc") && slices.Contains([]string{"AK", "SK", "CF", "admin-pass"}, v) {
 			t.Fatalf("%s quedó sin cifrar", k)
 		}
 	}

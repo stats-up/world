@@ -4,6 +4,6 @@
     <span class="muted small">Últimas 300 líneas</span>
     <button type="button" class="sm" hx-get="/sites/{{.SiteID}}/logs" hx-target="#container-logs" hx-swap="outerHTML">{{icon "refresh"}} Actualizar</button>
   </div>
-  <pre class="log">{{if .Logs}}{{.Logs}}{{else}}(sin logs){{end}}</pre>
+  <pre class="log" id="container-log-text" data-follow>{{if .Logs}}{{.Logs}}{{else}}(sin logs){{end}}</pre>
 </div>
 {{end}}

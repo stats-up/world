@@ -26,7 +26,7 @@
     <p class="small muted">Conectando y contando los correos de cada carpeta del origen… (con buzones grandes puede tardar unos minutos)</p>
   {{end}}
   {{with .Import.Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
-  {{if .Log}}<details{{if .Import.Running}} open{{end}}><summary class="small muted">Log de imapsync</summary><pre class="log short">{{.Log}}</pre></details>{{end}}
+  {{if .Log}}<details{{if .Import.Running}} open{{end}}><summary class="small muted">Log de imapsync</summary><pre class="log short" id="import-log-text" data-follow>{{.Log}}</pre></details>{{end}}
 </div>
 {{end}}
 

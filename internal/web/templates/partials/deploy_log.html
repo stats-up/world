@@ -6,6 +6,6 @@
     {{if not .Deployment.Running}}<a class="button sm" href="/sites/{{.Site.ID}}">{{icon "back"}} Volver al sitio</a>{{end}}
   </div>
   {{with .Deployment.Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
-  <pre class="log">{{if .Log}}{{.Log}}{{else}}Iniciando…{{end}}</pre>
+  <pre class="log" id="deploy-log-text" data-follow>{{if .Log}}{{.Log}}{{else}}Iniciando…{{end}}</pre>
 </div>
 {{end}}

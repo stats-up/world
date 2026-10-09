@@ -24,3 +24,28 @@ document.addEventListener("click", (ev) => {
   if (ev.ctrlKey || ev.metaKey) window.open(tr.dataset.href, "_blank");
   else window.location.href = tr.dataset.href;
 });
+
+// Logs en vivo: <pre data-follow id="..."> queda en la última línea cada vez que htmx lo
+// actualiza (deploys, importaciones de correo). Si el usuario subió para leer, se respeta
+// su posición; al volver abajo, sigue de nuevo.
+const atBottom = (el) => el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+const followState = new Map();
+function followLogs() {
+  document.querySelectorAll("pre[data-follow]").forEach((pre) => {
+    const prev = followState.get(pre.id);
+    pre.scrollTop = prev && !prev.bottom ? prev.top : pre.scrollHeight;
+  });
+  followState.clear();
+}
+document.addEventListener("htmx:beforeSwap", (ev) => {
+  ev.detail.target.querySelectorAll("pre[data-follow]").forEach((pre) => {
+    if (pre.id) followState.set(pre.id, { bottom: atBottom(pre), top: pre.scrollTop });
+  });
+});
+document.addEventListener("htmx:afterSettle", followLogs);
+document.addEventListener("DOMContentLoaded", followLogs);
+// Un <details> recién abierto: su log no tenía tamaño mientras estaba cerrado.
+document.addEventListener("toggle", (ev) => {
+  const pre = ev.target.open && ev.target.querySelector?.("pre[data-follow]");
+  if (pre) pre.scrollTop = pre.scrollHeight;
+}, true);
