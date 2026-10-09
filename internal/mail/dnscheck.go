@@ -21,7 +21,7 @@ type Record struct {
 // ParseZone lee el zone file que genera Stalwart y devuelve los registros que vale la pena verificar.
 func ParseZone(zone string) []Record {
 	var out []Record
-	for _, line := range strings.Split(zone, "\n") {
+	for _, line := range zoneLines(zone) {
 		f := strings.Fields(line)
 		if len(f) < 4 || f[1] != "IN" {
 			continue
@@ -38,7 +38,7 @@ func ParseZone(zone string) []Record {
 				continue
 			}
 		case "TXT":
-			value = strings.Trim(value, `"`)
+			value = txtValue(value)
 			if !isMailTXT(name, value) {
 				continue
 			}
@@ -48,6 +48,61 @@ func ParseZone(zone string) []Record {
 		out = append(out, Record{Name: name, Type: typ, Value: value, Note: recordNote(name, typ, value)})
 	}
 	return out
+}
+
+// zoneLines une los registros que ocupan varias líneas entre paréntesis
+// (Stalwart escribe así la llave DKIM RSA) y quita los paréntesis.
+func zoneLines(zone string) []string {
+	var out []string
+	var cur strings.Builder
+	depth := 0
+	for _, line := range strings.Split(zone, "\n") {
+		inQuote := false
+		for _, r := range line {
+			switch {
+			case r == '"':
+				inQuote = !inQuote
+			case inQuote:
+			case r == '(':
+				depth++
+				r = ' '
+			case r == ')':
+				depth--
+				r = ' '
+			}
+			cur.WriteRune(r)
+		}
+		if depth > 0 {
+			cur.WriteByte(' ')
+			continue
+		}
+		depth = 0
+		out = append(out, cur.String())
+		cur.Reset()
+	}
+	if cur.Len() > 0 {
+		out = append(out, cur.String())
+	}
+	return out
+}
+
+// txtValue concatena las cadenas entre comillas de un TXT ("a" "b" → ab), igual que el DNS.
+func txtValue(s string) string {
+	if !strings.Contains(s, `"`) {
+		return s
+	}
+	var b strings.Builder
+	in := false
+	for _, r := range s {
+		if r == '"' {
+			in = !in
+			continue
+		}
+		if in {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func isMailTXT(name, value string) bool {

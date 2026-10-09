@@ -136,6 +136,9 @@ _imaps._tcp.prueba.frikiforja.cl. IN SRV 0 1 993 mx.statsup.cl.
 mta-sts.prueba.frikiforja.cl. IN CNAME mx.statsup.cl.
 _mta-sts.prueba.frikiforja.cl. IN TXT "v=STSv1; id=1"
 v1-ed25519-20261006._domainkey.prueba.frikiforja.cl. IN TXT "v=DKIM1; k=ed25519; h=sha256; p=TMN="
+v1-rsa-20261006._domainkey.prueba.frikiforja.cl. IN TXT (
+    "v=DKIM1; k=rsa; h=sha256; p=MIIB"
+    "AQAB" )
 autoconfig.prueba.frikiforja.cl. IN CNAME mx.statsup.cl.
 `
 
@@ -150,6 +153,7 @@ func TestParseZone(t *testing.T) {
 		"MX prueba.frikiforja.cl = 10 mx.statsup.cl",
 		"TXT _dmarc.prueba.frikiforja.cl = v=DMARC1; p=reject; rua=mailto:postmaster@prueba.frikiforja.cl",
 		"TXT v1-ed25519-20261006._domainkey.prueba.frikiforja.cl = v=DKIM1; k=ed25519; h=sha256; p=TMN=",
+		"TXT v1-rsa-20261006._domainkey.prueba.frikiforja.cl = v=DKIM1; k=rsa; h=sha256; p=MIIBAQAB",
 		"CNAME autoconfig.prueba.frikiforja.cl = mx.statsup.cl",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
