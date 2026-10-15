@@ -3,7 +3,7 @@
 <nav class="crumbs"><a href="/buckets">Buckets</a>{{icon "chevron"}}{{if .Crumbs}}<a href="/buckets/{{.Bucket.ID}}">{{.Bucket.Name}}</a>{{range .Crumbs}}{{icon "chevron"}}{{if eq .Prefix $.Prefix}}<span>{{.Name}}</span>{{else}}<a href="/buckets/{{$.Bucket.ID}}?p={{.Prefix}}">{{.Name}}</a>{{end}}{{end}}{{else}}<span>{{.Bucket.Name}}</span>{{end}}</nav>
 <div class="page-head">
   <div class="page-title">
-    <span class="avatar">{{icon "database"}}</span>
+    <span class="avatar">{{icon "cloud"}}</span>
     <div>
       <h1>{{if .Prefix}}{{.Prefix}}{{else}}{{.Bucket.Name}}{{end}}</h1>
       <p class="sub"><code>{{.Bucket.Bucket}}</code> · {{.Bucket.Region}}{{with .Bucket.Endpoint}} · {{.}}{{end}}</p>

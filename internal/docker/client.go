@@ -122,6 +122,7 @@ type ContainerConfig struct {
 	Image            string              `json:"Image"`
 	Env              []string            `json:"Env,omitempty"`
 	Cmd              []string            `json:"Cmd,omitempty"`
+	Entrypoint       []string            `json:"Entrypoint,omitempty"`
 	Labels           map[string]string   `json:"Labels,omitempty"`
 	ExposedPorts     map[string]struct{} `json:"ExposedPorts,omitempty"`
 	HostConfig       HostConfig          `json:"HostConfig"`

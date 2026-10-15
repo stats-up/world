@@ -1,0 +1,81 @@
+{{define "title"}}Bases de datos{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>Bases de datos</h1>
+    <p class="sub">Migra una base MySQL o MariaDB completa a MainDB: tablas, datos, vistas, triggers y procedimientos. El origen solo se lee; no se modifica.</p>
+  </div>
+</div>
+
+{{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+
+<form method="post" action="/databases/migrations" class="card stack" id="migrar">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <h2>{{icon "database"}} Nueva migración</h2>
+  <fieldset>
+    <legend>Origen (MySQL o MariaDB)</legend>
+    <div class="cols">
+      <label>Host<input name="src_host" value="{{.Form.src_host}}" placeholder="38.18.230.11" required autocomplete="off" spellcheck="false"></label>
+      <label>Puerto<input name="src_port" value="{{.Form.src_port}}" inputmode="numeric" required></label>
+    </div>
+    <div class="cols">
+      <label>Usuario<input name="src_user" value="{{.Form.src_user}}" required autocomplete="off" spellcheck="false"></label>
+      <label>Contraseña<input name="src_pass" type="password" required autocomplete="new-password">
+        <small>Solo se usa para esta migración; no se guarda.</small></label>
+    </div>
+    <label>Base de datos<input name="src_db" value="{{.Form.src_db}}" placeholder="usuario_tienda" required autocomplete="off" spellcheck="false"></label>
+  </fieldset>
+  <fieldset>
+    <legend>Destino: MainDB{{with .MainDB.Host}} <span class="muted small">({{.}})</span>{{end}}</legend>
+    <label>Nombre de la base nueva<input name="dst_db" value="{{.Form.dst_db}}" placeholder="tienda" required pattern="[A-Za-z0-9_]{1,64}" autocomplete="off" spellcheck="false">
+      <small>Letras, números y guion bajo. world la crea; si ya existe con datos, no se toca.</small></label>
+  </fieldset>
+  <p class="note">El servidor de origen debe aceptar conexiones desde la IP de world. En cPanel: <em>Bases de datos → MySQL remoto</em> → agrega la IP del servidor.
+    Si en el origen se escribe durante la copia, lo último puede no alcanzar a copiarse: migra en un momento tranquilo o con el sitio en mantenimiento.</p>
+  <div id="db-probe" aria-live="polite"></div>
+  <div class="actions">
+    <button type="button" class="probe-btn" hx-post="/databases/probe" hx-include="closest form" hx-target="#db-probe" hx-disabled-elt="this">{{icon "check"}} <span class="idle">Probar conexión</span><span class="loading">Probando…</span></button>
+    <button type="submit" class="primary"{{if not .MainReady}} disabled title="Primero configura la conexión a MainDB"{{end}}>{{icon "arrow"}} Migrar</button>
+  </div>
+</form>
+
+{{if .Migrations}}
+<section class="card flush">
+  <div class="row"><h2>{{icon "clock"}} Historial</h2></div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Origen</th><th>Base nueva</th><th>Estado</th><th class="num hide-sm">Tablas</th><th class="hide-sm">Inicio</th><th class="hide-sm">Duración</th></tr></thead>
+    <tbody>
+    {{range .Migrations}}
+      <tr data-href="/databases/migrations/{{.ID}}">
+        <td><a href="/databases/migrations/{{.ID}}"><code>{{.SrcDB}}</code></a> <span class="muted small">en {{.SrcHost}}</span></td>
+        <td><code>{{.DstDB}}</code></td>
+        <td>{{template "dbmig_status" .Status}}</td>
+        <td class="num hide-sm">{{.TablesDone}} / {{.TablesTotal}}</td>
+        <td class="small hide-sm">{{ago .StartedAt}}</td>
+        <td class="small hide-sm">{{.Duration}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+</section>
+{{end}}
+
+<section class="card" id="maindb">
+  <h2>{{icon "settings"}} Conexión a MainDB</h2>
+  <p class="muted small">Usuario administrador de la base principal (en Lightsail: el usuario maestro). world lo usa para crear las bases nuevas y copiar los datos.</p>
+  {{if .MainReady}}<p class="small"><span class="badge ok">configurada</span> <code>{{.MainDB.User}}@{{.MainDB.Host}}:{{.MainDB.Port}}</code></p>{{end}}
+  <form method="post" action="/databases/maindb" class="stack">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <div class="cols">
+      <label>Host<input name="host" value="{{.MainDB.Host}}" placeholder="ls-xxxx.sa-east-1.rds.amazonaws.com" required autocomplete="off" spellcheck="false"></label>
+      <label>Puerto<input name="port" value="{{.MainDB.Port}}" inputmode="numeric" required></label>
+    </div>
+    <div class="cols">
+      <label>Usuario<input name="user" value="{{.MainDB.User}}" placeholder="dbmasteruser" required autocomplete="off" spellcheck="false"></label>
+      <label>Contraseña<input name="password" type="password" autocomplete="new-password"{{if not .MainReady}} required{{end}}>
+        <small>{{if .MainReady}}Déjala vacía para conservar la actual. {{end}}Se guarda cifrada.</small></label>
+    </div>
+    <div class="actions"><button type="submit">{{icon "check"}} Probar y guardar</button></div>
+  </form>
+</section>
+{{end}}

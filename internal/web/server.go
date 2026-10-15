@@ -18,6 +18,7 @@ import (
 
 	"world/internal/auth"
 	"world/internal/bucket"
+	"world/internal/dbmigrate"
 	"world/internal/config"
 	"world/internal/deploy"
 	"world/internal/docker"
@@ -51,6 +52,7 @@ type Server struct {
 	mailAPI *mail.Client
 	imports *mail.Importer
 	buckets *bucket.Scanner
+	dbmig   *dbmigrate.Migrator
 	mon     *monitor.Monitor
 	version string
 
@@ -66,6 +68,7 @@ func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box,
 	s.mailAPI = mail.NewClient(dc, adminSecret)
 	s.imports = mail.NewImporter(dc, cfg, st, adminSecret)
 	s.buckets = bucket.NewScanner(st, box)
+	s.dbmig = dbmigrate.NewMigrator(dc, cfg, st, s.mainDB)
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}
@@ -195,6 +198,14 @@ func (s *Server) Handler() http.Handler {
 	priv("GET /settings", s.settingsForm)
 	priv("POST /settings", s.settingsSubmit)
 	priv("POST /settings/mail", s.mailSettingsSubmit)
+	priv("GET /databases", s.databasesIndex)
+	priv("POST /databases/maindb", s.mainDBSubmit)
+	priv("POST /databases/probe", s.databaseProbe)
+	priv("POST /databases/migrations", s.migrationCreate)
+	priv("GET /databases/migrations/{id}", s.migrationShow)
+	priv("GET /databases/migrations/{id}/status", s.migrationStatus)
+	priv("POST /databases/migrations/{id}/cancel", s.migrationCancel)
+	priv("POST /databases/migrations/{id}/drop", s.migrationDrop)
 	priv("GET /buckets", s.bucketIndex)
 	priv("GET /buckets/new", s.bucketNew)
 	priv("POST /buckets", s.bucketCreate)

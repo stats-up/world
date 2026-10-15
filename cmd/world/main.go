@@ -115,6 +115,7 @@ func serve(cfg config.Config) error {
 	go mx.EnsureLoop(ctx, func() mail.Settings { return mail.LoadSettings(st, box) })
 	go srv.ResumeImports(ctx)
 	go srv.RunBucketScans(ctx)
+	go srv.ResumeDBMigrations(ctx)
 
 	httpSrv := &http.Server{
 		Addr:              cfg.Listen,

@@ -1,0 +1,14 @@
+{{define "dbmig_status"}}{{if eq . "running"}}<span class="badge warn">en curso</span>{{else if eq . "success"}}<span class="badge ok">completada</span>{{else if eq . "canceled"}}<span class="badge muted">cancelada</span>{{else}}<span class="badge err">falló</span>{{end}}{{end}}
+
+{{define "db_probe"}}
+{{if .Source}}<div class="flash ok">{{icon "check"}}<div><strong>Origen conectado</strong> <span class="muted small">{{.Source.Version}}</span><br>
+  {{.Source.Tables}} tablas · ≈ {{size .Source.Bytes}} · ≈ {{num .Source.Rows}} filas{{if .Source.Views}} · {{.Source.Views}} vistas{{end}}{{if .Source.Triggers}} · {{.Source.Triggers}} triggers{{end}}{{if .Source.Routines}} · {{.Source.Routines}} procedimientos/funciones{{end}}{{if .Source.Events}} · {{.Source.Events}} eventos{{end}}
+  <br><span class="muted small">Juego de caracteres: {{.Source.Charset}} / {{.Source.Collation}}</span></div></div>
+{{else if .SourceErr}}<div class="flash error">{{icon "alert"}}<div><strong>Origen:</strong> {{.SourceErr}}</div></div>{{end}}
+{{if .Target}}<div class="flash {{if .Target.Exists}}{{if .Target.Tables}}error{{else}}warn{{end}}{{else}}ok{{end}}">{{if and .Target.Exists .Target.Tables}}{{icon "alert"}}{{else}}{{icon "check"}}{{end}}<div><strong>MainDB conectada</strong> <span class="muted small">{{.Target.Version}}</span><br>
+  {{if .Target.Exists}}{{if .Target.Tables}}La base <code>{{.DstDB}}</code> ya existe y tiene {{.Target.Tables}} tabla(s).{{else}}La base <code>{{.DstDB}}</code> ya existe pero está vacía: se usará.{{end}}{{else}}La base <code>{{.DstDB}}</code> está libre: se creará.{{end}}</div></div>
+{{else if .TargetErr}}<div class="flash error">{{icon "alert"}}<div><strong>MainDB:</strong> {{.TargetErr}}</div></div>{{end}}
+{{range .Warnings}}<div class="flash warn small">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+{{if .OK}}<p class="small"><span class="badge ok">listo para migrar</span></p>
+{{else}}{{range .Blocking}}<div class="flash error small">{{icon "alert"}}<div>{{.}}</div></div>{{end}}{{end}}
+{{end}}

@@ -184,6 +184,23 @@ var migrations = []string{
 		PRIMARY KEY (bucket_id, prefix)
 	);
 	CREATE INDEX bucket_folders_parent ON bucket_folders (bucket_id, parent, bytes DESC);`,
+
+	// 8: migraciones de bases MySQL/MariaDB hacia MainDB (la contraseña de origen no se guarda).
+	`CREATE TABLE db_migrations (
+		id           INTEGER PRIMARY KEY,
+		src_host     TEXT    NOT NULL,
+		src_port     INTEGER NOT NULL,
+		src_user     TEXT    NOT NULL,
+		src_db       TEXT    NOT NULL,
+		dst_db       TEXT    NOT NULL,
+		status       TEXT    NOT NULL,
+		error        TEXT    NOT NULL DEFAULT '',
+		tables_total INTEGER NOT NULL DEFAULT 0,
+		tables_done  INTEGER NOT NULL DEFAULT 0,
+		bytes_est    INTEGER NOT NULL DEFAULT 0,
+		started_at   INTEGER NOT NULL,
+		finished_at  INTEGER NOT NULL DEFAULT 0
+	);`,
 }
 
 func (s *Store) migrate() error {

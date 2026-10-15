@@ -1,0 +1,37 @@
+{{define "db_migration_status"}}
+<div id="db-migration" class="stack"{{if .Mig.Running}} hx-get="/databases/migrations/{{.Mig.ID}}/status" hx-trigger="every 3s" hx-swap="outerHTML"{{end}}>
+  <div class="row">
+    <div>{{template "dbmig_status" .Mig.Status}} <span class="muted">{{.Mig.Duration}}</span></div>
+    {{if .Mig.Running}}
+    <form method="post" action="/databases/migrations/{{.Mig.ID}}/cancel"
+          data-confirm="¿Cancelar la migración?"
+          data-confirm-text="Se detiene la copia de {{.Mig.SrcDB}}. La base {{.Mig.DstDB}} quedará a medias en MainDB; después puedes borrarla y migrar de nuevo."
+          data-confirm-button="Sí, cancelar">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <button type="submit" class="sm danger">{{icon "stop"}} Cancelar</button>
+    </form>
+    {{end}}
+  </div>
+  {{if .Mig.Running}}{{progress .Mig.Percent}}{{end}}
+  <dl class="import-stats">
+    <div><dt>Tablas</dt><dd>{{.Mig.TablesDone}} <small>de {{.Mig.TablesTotal}}</small></dd></div>
+    <div><dt>Tamaño del origen</dt><dd>≈ {{size .Mig.BytesEst}}</dd></div>
+    <div><dt>{{if .Mig.Running}}Tiempo{{else}}Duración{{end}}</dt><dd>{{.Mig.Duration}}</dd></div>
+  </dl>
+  {{if eq .Mig.Status "success"}}
+  <div class="flash ok">{{icon "check"}}<div><strong>Migración completada.</strong>{{with .Mig.Error}} {{.}}{{end}}
+    Para usarla en un sitio, en su <code>.env</code>: <code>DB_HOST={{.MainHost}}</code> y <code>DB_DATABASE={{.Mig.DstDB}}</code>, con un usuario de MainDB que tenga acceso a esa base.</div></div>
+  {{else}}{{with .Mig.Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}{{end}}
+  {{if .Log}}<details{{if or .Mig.Running (eq .Mig.Status "failed")}} open{{end}}><summary class="small muted">Log de la copia</summary><pre class="log short" id="db-migration-log" data-follow>{{.Log}}</pre></details>{{end}}
+  {{if or (eq .Mig.Status "failed") (eq .Mig.Status "canceled")}}
+  <form method="post" action="/databases/migrations/{{.Mig.ID}}/drop"
+        data-confirm="¿Borrar la base {{.Mig.DstDB}} de MainDB?"
+        data-confirm-text="Se elimina la base {{.Mig.DstDB}} con todo lo que alcanzó a copiarse. El origen ({{.Mig.SrcDB}}) no se toca. No se puede deshacer."
+        data-confirm-button="Sí, borrar la base">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <p class="muted small">Para reintentar con el mismo nombre, primero borra lo que quedó a medias.</p>
+    <button type="submit" class="danger">{{icon "trash"}} Borrar {{.Mig.DstDB}} de MainDB</button>
+  </form>
+  {{end}}
+</div>
+{{end}}

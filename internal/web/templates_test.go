@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"world/internal/dbmigrate"
 	"world/internal/mail"
 	"world/internal/store"
 )
@@ -146,6 +147,57 @@ func TestBucketPagesRender(t *testing.T) {
 			if !strings.Contains(html, "5.000 objetos contados") || !strings.Contains(html, `hx-get="/buckets/3/status"`) {
 				t.Error("debe mostrar el avance y actualizarse solo")
 			}
+		}
+	}
+}
+
+func TestDatabasePagesRender(t *testing.T) {
+	s := &Server{pages: map[string]*template.Template{}}
+	if err := s.parseTemplates(); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	running := &store.DBMigration{ID: 4, SrcHost: "38.18.230.11", SrcPort: 3306, SrcUser: "cp_u", SrcDB: "cp_tienda", DstDB: "tienda",
+		Status: store.DBMigRunning, TablesTotal: 40, TablesDone: 10, BytesEst: 300 << 20, StartedAt: now}
+	failed := *running
+	failed.Status, failed.Error, failed.FinishedAt = store.DBMigFailed, "Error 1419: algo", now
+	main := dbmigrate.Conn{Host: "ls-x.rds.amazonaws.com", Port: 3306, User: "dbmasteruser"}
+	pages := map[string]data{
+		"databases":          {"MainDB": main, "MainReady": true, "Migrations": []*store.DBMigration{running, &failed}, "Form": map[string]string{"src_port": "3306"}},
+		"databases#empty":    {"MainDB": dbmigrate.Conn{Port: 3306}, "MainReady": false, "Form": map[string]string{}, "Error": "Falta algo"},
+		"db_migration":       {"Mig": running, "Status": data{"Mig": running, "Log": "-- Table structure for table `a`", "CSRF": "tok"}},
+		"db_migration#error": {"Mig": &failed, "Status": data{"Mig": &failed, "Log": "ERROR 1419", "CSRF": "tok"}},
+	}
+	for name, d := range pages {
+		page, _, _ := strings.Cut(name, "#")
+		d["CSRF"] = "tok"
+		var out strings.Builder
+		if err := s.pages[page].ExecuteTemplate(&out, "layout", d); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		html := out.String()
+		checks := map[string][]string{
+			"databases":          {`hx-post="/databases/probe"`, "dbmasteruser@ls-x.rds.amazonaws.com", "cp_tienda", "10 / 40"},
+			"databases#empty":    {"Falta algo", "disabled title=\"Primero configura"},
+			"db_migration":       {`hx-get="/databases/migrations/4/status"`, "Cancelar", "data-follow"},
+			"db_migration#error": {"Error 1419", `action="/databases/migrations/4/drop"`, "data-confirm="},
+		}[name]
+		for _, want := range checks {
+			if !strings.Contains(html, want) {
+				t.Errorf("%s: falta %q", name, want)
+			}
+		}
+	}
+	// El resultado de la prueba de conexión (parcial htmx).
+	var out strings.Builder
+	p := &probeResult{DstDB: "tienda", Source: &dbmigrate.SourceInfo{Version: "10.6.18-MariaDB", Tables: 40, Bytes: 300 << 20, Triggers: 2, Charset: "utf8mb4", Collation: "utf8mb4_general_ci"},
+		Target: &dbmigrate.TargetInfo{Version: "8.4.11", Exists: true, Tables: 3}, Blocking: []string{"ya existe"}}
+	if err := s.partials.ExecuteTemplate(&out, "db_probe", p); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Origen conectado", "10.6.18-MariaDB", "2 triggers", "ya existe y tiene 3", "ya existe"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("probe: falta %q", want)
 		}
 	}
 }
