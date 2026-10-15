@@ -427,3 +427,13 @@ svg.chart .marker { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3
   .form-foot { padding: 1rem; }
   .table-note { padding: .75rem 1rem; }
 }
+
+/* Bases de datos: pestañas de la página, explorador y grilla de datos */
+.page-tabs { margin: 0 0 1rem; }
+details.card > summary { cursor: pointer; }
+details.card > summary h2.inline { display: inline-flex; margin: 0; }
+details.card[open] > summary { margin-bottom: .75rem; }
+.cell-null { color: var(--muted); font-style: italic; font-size: .78rem; }
+.data-grid th, .data-grid td { white-space: nowrap; font-size: .8rem; }
+.data-grid td { max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
+.data-grid th a { color: inherit; }

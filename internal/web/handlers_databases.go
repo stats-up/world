@@ -21,7 +21,11 @@ func (s *Server) ResumeDBMigrations(ctx context.Context) { s.dbmig.Resume(ctx) }
 func (s *Server) mainDB() dbmigrate.Conn { return dbmigrate.MainDB(s.st, s.box) }
 
 func (s *Server) databasesIndex(w http.ResponseWriter, r *http.Request) {
-	s.renderDatabases(w, r, map[string]string{"src_port": "3306"}, "")
+	if r.URL.Query().Get("tab") == "migraciones" {
+		s.renderDatabases(w, r, map[string]string{"src_port": "3306"}, "")
+		return
+	}
+	s.renderExplore(w, r, nil, "")
 }
 
 func (s *Server) renderDatabases(w http.ResponseWriter, r *http.Request, form map[string]string, errMsg string) {
@@ -32,7 +36,7 @@ func (s *Server) renderDatabases(w http.ResponseWriter, r *http.Request, form ma
 	}
 	main := s.mainDB()
 	main.Password = "" // nunca vuelve al navegador
-	s.render(w, r, "databases", data{"MainDB": main, "MainReady": dbmigrate.Configured(s.mainDB()),
+	s.render(w, r, "databases", data{"Tab": "migraciones", "MainDB": main, "MainReady": dbmigrate.Configured(s.mainDB()),
 		"Migrations": migs, "Form": form, "Error": errMsg})
 }
 

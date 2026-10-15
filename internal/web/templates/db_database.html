@@ -1,0 +1,40 @@
+{{define "title"}}{{.DB}} · {{.Inst.Name}}{{end}}
+{{define "content"}}
+<nav class="crumbs"><a href="/databases">Bases de datos</a>{{icon "chevron"}}<a href="/databases/x/{{.Inst.Key}}">{{.Inst.Name}}</a>{{icon "chevron"}}<span>{{.DB}}</span></nav>
+<div class="page-head"><div class="page-title"><span class="avatar">{{icon "database"}}</span><div>
+  <h1><code>{{.DB}}</code></h1>
+  <p class="sub">{{.Count}} tablas · {{.Views}} vistas · ≈ {{num .Rows}} registros · {{size .Total}}</p></div></div></div>
+
+{{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+{{if .Tables}}
+<div class="row filters">
+  <label class="search">{{icon "search"}}<input type="search" placeholder="Buscar tabla…" data-filter="#tables" aria-label="Buscar tabla"></label>
+  <select data-filter="#tables" data-filter-key="type" aria-label="Tipo">
+    <option value="">Tablas y vistas</option><option value="table">Solo tablas</option><option value="view">Solo vistas</option>
+  </select>
+  <span class="muted small" id="tabla-count"></span>
+</div>
+<section class="card flush">
+  <div class="table-wrap"><table class="table sortable sizes" id="tables">
+    <thead><tr><th data-sort="text" aria-sort="ascending">Tabla</th><th data-sort="num" class="num">Registros ≈</th><th data-sort="num" class="num">Espacio</th>
+      <th data-sort="num" class="num hide-sm">Índices</th><th data-sort="text" class="hide-sm">Motor</th><th data-sort="text" class="hide-sm">Intercalación</th><th data-sort="num" class="hide-sm">Modificada</th></tr></thead>
+    <tbody>
+    {{range .Tables}}
+      <tr data-href="/databases/x/{{$.Inst.Key}}/{{$.DB}}/{{.Name}}" data-type="{{if .View}}view{{else}}table{{end}}">
+        <td><a href="/databases/x/{{$.Inst.Key}}/{{$.DB}}/{{.Name}}"><code>{{.Name}}</code></a>{{if .View}} <span class="badge">vista</span>{{end}}{{with .Comment}}<br><span class="muted small">{{.}}</span>{{end}}</td>
+        <td class="num" data-v="{{.Rows}}">{{if .View}}—{{else}}{{num .Rows}}{{end}}</td>
+        <td class="num" data-v="{{.Bytes}}">{{if .View}}—{{else}}<strong>{{size .Bytes}}</strong>{{end}}</td>
+        <td class="num hide-sm" data-v="{{.IndexBytes}}">{{if not .View}}{{size .IndexBytes}}{{end}}</td>
+        <td class="small hide-sm">{{.Engine}}</td>
+        <td class="small hide-sm">{{.Collation}}</td>
+        <td class="small hide-sm" data-v="{{.Updated.Unix}}">{{if not .Updated.IsZero}}{{ago .Updated}}{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  <p class="muted small" id="tabla-empty" hidden>No hay tablas que coincidan.</p>
+</section>
+{{else if not .Error}}
+<div class="card empty-state">{{icon "database"}}<strong>La base está vacía</strong></div>
+{{end}}
+{{end}}

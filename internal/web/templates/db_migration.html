@@ -1,6 +1,6 @@
 {{define "title"}}Migración {{.Mig.SrcDB}} → {{.Mig.DstDB}}{{end}}
 {{define "content"}}
-<nav class="crumbs"><a href="/databases">Bases de datos</a>{{icon "chevron"}}<span>Migración #{{.Mig.ID}}</span></nav>
+<nav class="crumbs"><a href="/databases?tab=migraciones">Bases de datos · Migraciones</a>{{icon "chevron"}}<span>Migración #{{.Mig.ID}}</span></nav>
 <div class="page-head"><div class="page-title"><span class="avatar">{{icon "database"}}</span><div>
   <h1><code>{{.Mig.SrcDB}}</code> {{icon "arrow"}} <code>{{.Mig.DstDB}}</code></h1>
   <p class="sub">desde {{.Mig.SrcUser}}@{{.Mig.SrcHost}}:{{.Mig.SrcPort}} hacia MainDB</p></div></div></div>

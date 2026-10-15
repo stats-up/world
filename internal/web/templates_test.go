@@ -163,9 +163,27 @@ func TestDatabasePagesRender(t *testing.T) {
 	failed.Status, failed.Error, failed.FinishedAt = store.DBMigFailed, "Error 1419: algo", now
 	main := dbmigrate.Conn{Host: "ls-x.rds.amazonaws.com", Port: 3306, User: "dbmasteruser"}
 	pages := map[string]data{
-		"databases":          {"MainDB": main, "MainReady": true, "Migrations": []*store.DBMigration{running, &failed}, "Form": map[string]string{"src_port": "3306"}},
-		"databases#empty":    {"MainDB": dbmigrate.Conn{Port: 3306}, "MainReady": false, "Form": map[string]string{}, "Error": "Falta algo"},
-		"db_migration":       {"Mig": running, "Status": data{"Mig": running, "Log": "-- Table structure for table `a`", "CSRF": "tok"}},
+		"databases":       {"Tab": "migraciones", "MainDB": main, "MainReady": true, "Migrations": []*store.DBMigration{running, &failed}, "Form": map[string]string{"src_port": "3306"}},
+		"databases#empty": {"Tab": "migraciones", "MainDB": dbmigrate.Conn{Port: 3306}, "MainReady": false, "Form": map[string]string{}, "Error": "Falta algo"},
+		"databases#explore": {"Tab": "explorar", "MainDB": main, "MainReady": true, "Form": map[string]string{"port": "3306"},
+			"Instances": []*dbInstanceView{
+				{Key: "main", Name: "MainDB", Host: "ls-x", Port: 3306, User: "dbmasteruser", Summary: &dbmigrate.ServerSummary{Version: "8.4.11",
+					Databases: []dbmigrate.DBSummary{{Name: "tienda", Bytes: 5 << 20, Tables: 3}, {Name: "mysql", System: true, Bytes: 1 << 30}}}},
+				{Key: "2", ID: 2, Name: "cPanel 5s", Host: "38.18.230.11", Port: 3306, User: "u", Err: "no responde"}}},
+		"db_instance": {"Inst": &dbInstanceView{Key: "main", Name: "MainDB", Host: "ls-x", Port: 3306, User: "admin",
+			Summary: &dbmigrate.ServerSummary{Version: "8.4.11", Databases: []dbmigrate.DBSummary{{Name: "client_5s", Tables: 40, Rows: 123456, Bytes: 2 << 30}, {Name: "sys", System: true}}}}},
+		"db_database": {"Inst": &dbInstanceView{Key: "main", Name: "MainDB"}, "DB": "client_5s", "Count": 1, "Views": 1, "Rows": int64(10), "Total": int64(2048),
+			"Tables": []dbmigrate.TableSummary{{Name: "users", Type: "BASE TABLE", Engine: "InnoDB", Rows: 10, DataBytes: 1024, IndexBytes: 1024}, {Name: "resumen", Type: "VIEW"}}},
+		"db_table": {"Inst": &dbInstanceView{Key: "main", Name: "MainDB"}, "DB": "client_5s", "Base": "/databases/x/main/client_5s/users",
+			"Q": tableQuery{Tab: "datos", RowQuery: dbmigrate.RowQuery{Limit: 50, Offset: 50, Order: "id", FilterCol: "name", FilterVal: "ana"}},
+			"Table": &dbmigrate.TableDetail{TableSummary: dbmigrate.TableSummary{Name: "users", Type: "BASE TABLE"},
+				Columns: []dbmigrate.Column{{Name: "id", Type: "int", DataType: "int", Key: "PRI"}, {Name: "name", Type: "text", DataType: "text"}, {Name: "foto", DataType: "blob"}}},
+			"Rows": [][]dbmigrate.Cell{{{Text: "51"}, {Text: "Ana <b>", Cut: true}, {Binary: true, Size: 2048}}, {{Text: "52"}, {Null: true}, {Null: true}}},
+			"More": true, "To": 52},
+		"db_table#estructura": {"Inst": &dbInstanceView{Key: "1", ID: 1, Name: "cPanel"}, "DB": "d", "Base": "/databases/x/1/d/v", "Q": tableQuery{Tab: "estructura"},
+			"Table": &dbmigrate.TableDetail{TableSummary: dbmigrate.TableSummary{Name: "v", Type: "VIEW"}, Create: "CREATE VIEW v AS select 1",
+				Columns: []dbmigrate.Column{{Name: "id", Type: "int", Key: "PRI"}}, Indexes: []dbmigrate.Index{{Name: "PRIMARY", Unique: true, Columns: "id"}}}},
+		"db_migration": {"Mig": running, "Status": data{"Mig": running, "Log": "-- Table structure for table `a`", "CSRF": "tok"}},
 		"db_migration#live": {"Mig": running, "Status": data{"Mig": running, "CSRF": "tok", "Live": &dbmigrate.Live{Table: "request_applicant_service_files",
 			Rows: 1234567, RowsEst: 2500000, Received: 13 << 30, Idle: 30 * time.Minute, DBState: "waiting for handler commit", DBTime: 1800}}},
 		"db_migration#error": {"Mig": &failed, "Status": data{"Mig": &failed, "Log": "ERROR 1419", "CSRF": "tok"}},
@@ -179,11 +197,16 @@ func TestDatabasePagesRender(t *testing.T) {
 		}
 		html := out.String()
 		checks := map[string][]string{
-			"databases":          {`hx-post="/databases/probe"`, "dbmasteruser@ls-x.rds.amazonaws.com", "cp_tienda", "10 / 40"},
-			"databases#empty":    {"Falta algo", "disabled title=\"Primero configura"},
-			"db_migration":       {`hx-get="/databases/migrations/4/status"`, "Cancelar", "data-follow"},
-			"db_migration#live":  {"request_applicant_service_files", "1.234.567", "2.500.000", "(49%)", "13.0 GB", "detenido", "Sin datos nuevos desde hace 30m0s", "1800 s en «waiting for handler commit»"},
-			"db_migration#error": {"Error 1419", `action="/databases/migrations/4/drop"`, "data-confirm="},
+			"databases":           {`hx-post="/databases/probe"`, "cp_tienda", "10 / 40"},
+			"databases#empty":     {"Falta algo", "disabled title=\"Primero configura"},
+			"databases#explore":   {`href="/databases/x/main"`, "dbmasteruser@ls-x.rds.amazonaws.com", "8.4.11", "5 MB", "sin conexión", `action="/databases/instances/2/delete"`, "data-confirm=", `action="/databases/instances"`},
+			"db_instance":         {"client_5s", "123.456", "2.0 GB", `data-kind="system" hidden`},
+			"db_database":         {`href="/databases/x/main/client_5s/users"`, "vista", "2 KB"},
+			"db_table":            {"Ana &lt;b&gt;", "binario · 2 KB", "NULL", "Filas 51–52", "Siguientes", "Anteriores", "?fc=name&amp;fv=ana&amp;o=id", "Quitar filtro"},
+			"db_table#estructura": {"Definición SQL", "CREATE VIEW v AS select 1", "PRIMARY", "PK"},
+			"db_migration":        {`hx-get="/databases/migrations/4/status"`, "Cancelar", "data-follow"},
+			"db_migration#live":   {"request_applicant_service_files", "1.234.567", "2.500.000", "(49%)", "13.0 GB", "detenido", "Sin datos nuevos desde hace 30m0s", "1800 s en «waiting for handler commit»"},
+			"db_migration#error":  {"Error 1419", `action="/databases/migrations/4/drop"`, "data-confirm="},
 		}[name]
 		for _, want := range checks {
 			if !strings.Contains(html, want) {

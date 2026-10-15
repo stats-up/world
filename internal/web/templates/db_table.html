@@ -1,0 +1,76 @@
+{{define "title"}}{{.Table.Name}} · {{.DB}}{{end}}
+{{define "content"}}
+<nav class="crumbs"><a href="/databases">Bases de datos</a>{{icon "chevron"}}<a href="/databases/x/{{.Inst.Key}}">{{.Inst.Name}}</a>{{icon "chevron"}}<a href="/databases/x/{{.Inst.Key}}/{{.DB}}">{{.DB}}</a>{{icon "chevron"}}<span>{{.Table.Name}}</span></nav>
+<div class="page-head"><div class="page-title"><span class="avatar">{{icon "database"}}</span><div>
+  <h1><code>{{.Table.Name}}</code>{{if .Table.View}} <span class="badge">vista</span>{{end}}</h1>
+  <p class="sub">{{if not .Table.View}}≈ {{num .Table.Rows}} registros · {{size .Table.Bytes}} · {{.Table.Engine}} · {{end}}{{len .Table.Columns}} columnas{{with .Table.Collation}} · {{.}}{{end}}</p></div></div></div>
+<nav class="tabs page-tabs">
+  <a href="{{.Base}}"{{if eq .Q.Tab "datos"}} class="active" aria-current="page"{{end}}>Datos</a>
+  <a href="{{.Base}}?tab=estructura"{{if eq .Q.Tab "estructura"}} class="active" aria-current="page"{{end}}>Estructura</a>
+</nav>
+
+{{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+
+{{if eq .Q.Tab "estructura"}}
+<section class="card flush">
+  <div class="row"><h2>Columnas</h2></div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Columna</th><th>Tipo</th><th>Nulo</th><th class="hide-sm">Predeterminado</th><th class="hide-sm">Extra</th><th class="hide-sm">Intercalación</th></tr></thead>
+    <tbody>
+    {{range .Table.Columns}}
+      <tr><td><code>{{.Name}}</code>{{if eq .Key "PRI"}} <span class="badge ok">PK</span>{{else if eq .Key "UNI"}} <span class="badge">único</span>{{else if eq .Key "MUL"}} <span class="badge">índice</span>{{end}}{{with .Comment}}<br><span class="muted small">{{.}}</span>{{end}}</td>
+        <td><code>{{.Type}}</code></td><td>{{if .Nullable}}sí{{else}}no{{end}}</td>
+        <td class="small hide-sm">{{if .Default.Valid}}<code>{{.Default.String}}</code>{{else if .Nullable}}<span class="cell-null">NULL</span>{{end}}</td>
+        <td class="small hide-sm">{{.Extra}}</td><td class="small hide-sm">{{.Collation}}</td></tr>
+    {{end}}
+    </tbody>
+  </table></div>
+</section>
+{{if .Table.Indexes}}
+<section class="card flush">
+  <div class="row"><h2>Índices</h2></div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Índice</th><th>Columnas</th><th>Único</th><th class="hide-sm">Tipo</th></tr></thead>
+    <tbody>{{range .Table.Indexes}}<tr><td><code>{{.Name}}</code></td><td><code>{{.Columns}}</code></td><td>{{if .Unique}}sí{{else}}no{{end}}</td><td class="small hide-sm">{{.Type}}</td></tr>{{end}}</tbody>
+  </table></div>
+</section>
+{{end}}
+{{with .Table.Create}}
+<details class="card"><summary><h2 class="inline">Definición SQL</h2></summary><pre class="log">{{.}}</pre></details>
+{{end}}
+{{else}}
+<form method="get" action="{{.Base}}" class="row filters">
+  <select name="fc" aria-label="Columna a filtrar">
+    {{range .Table.Columns}}<option value="{{.Name}}"{{if eq .Name $.Q.FilterCol}} selected{{end}}>{{.Name}}</option>{{end}}
+  </select>
+  <label class="search">{{icon "search"}}<input type="search" name="fv" value="{{.Q.FilterVal}}" placeholder="contiene…" aria-label="Valor a buscar"></label>
+  {{with .Q.Order}}<input type="hidden" name="o" value="{{.}}">{{if $.Q.Desc}}<input type="hidden" name="d" value="1">{{end}}{{end}}
+  <select name="n" aria-label="Filas por página">
+    <option value="50"{{if eq .Q.Limit 50}} selected{{end}}>50 filas</option><option value="100"{{if eq .Q.Limit 100}} selected{{end}}>100 filas</option><option value="200"{{if eq .Q.Limit 200}} selected{{end}}>200 filas</option>
+  </select>
+  <button type="submit" class="sm">{{icon "search"}} Aplicar</button>
+  {{if .Q.FilterVal}}<a class="button sm ghost" href="{{.Q.ClearURL .Base}}">Quitar filtro</a>{{end}}
+</form>
+{{if .Rows}}
+<section class="card flush">
+  <div class="table-wrap"><table class="table data-grid">
+    <thead><tr>{{range .Table.Columns}}<th><a href="{{$.Q.SortURL $.Base .Name}}" title="{{.Type}} · ordenar">{{.Name}}{{if eq .Name $.Q.Order}} {{if $.Q.Desc}}↓{{else}}↑{{end}}{{end}}</a></th>{{end}}</tr></thead>
+    <tbody>
+    {{range .Rows}}<tr>{{range .}}<td>{{if .Null}}<span class="cell-null">NULL</span>{{else if .Binary}}<span class="cell-null">binario · {{size .Size}}</span>{{else}}<span title="{{.Text}}">{{.Text}}</span>{{if .Cut}}<span class="cell-null">…</span>{{end}}{{end}}</td>{{end}}</tr>
+    {{end}}
+    </tbody>
+  </table></div>
+</section>
+<div class="row">
+  <span class="muted small">Filas {{.Q.From}}–{{.To}}{{if .Q.FilterVal}} (filtradas){{end}}</span>
+  <div class="actions">
+    {{if gt .Q.Offset 0}}<a class="button sm" href="{{.Q.PrevURL .Base}}">← Anteriores</a>{{end}}
+    {{if .More}}<a class="button sm" href="{{.Q.NextURL .Base}}">Siguientes →</a>{{end}}
+  </div>
+</div>
+<p class="muted small table-note">Solo lectura. Los textos largos se muestran recortados (300 caracteres) y los binarios solo con su tamaño.</p>
+{{else if not .Error}}
+<div class="card empty-state">{{icon "database"}}<strong>{{if .Q.FilterVal}}Ningún registro coincide con el filtro{{else if gt .Q.Offset 0}}No hay más registros{{else}}La tabla no tiene registros{{end}}</strong></div>
+{{end}}
+{{end}}
+{{end}}

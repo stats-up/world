@@ -3,11 +3,18 @@
 <div class="page-head">
   <div>
     <h1>Bases de datos</h1>
-    <p class="sub">Migra una base MySQL o MariaDB completa a MainDB: tablas, datos, vistas, triggers y procedimientos. El origen solo se lee; no se modifica.</p>
+    <p class="sub">{{if eq .Tab "migraciones"}}Migra una base MySQL o MariaDB completa a MainDB: tablas, datos, vistas, triggers y procedimientos. El origen solo se lee; no se modifica.{{else}}Explora tus servidores MySQL y MariaDB: bases, tablas, estructura y datos. Solo lectura: world no modifica nada.{{end}}</p>
   </div>
 </div>
+<nav class="tabs page-tabs">
+  <a href="/databases"{{if ne .Tab "migraciones"}} class="active" aria-current="page"{{end}}>{{icon "search"}} Explorar</a>
+  <a href="/databases?tab=migraciones"{{if eq .Tab "migraciones"}} class="active" aria-current="page"{{end}}>{{icon "arrow"}} Migraciones</a>
+</nav>
 
 {{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+
+{{if eq .Tab "migraciones"}}
+{{if not .MainReady}}<div class="flash">{{icon "alert"}}<div>Primero configura la <a href="/databases#maindb">conexión a MainDB</a> en la pestaña Explorar.</div></div>{{end}}
 
 <form method="post" action="/databases/migrations" class="card stack" id="migrar">
   <input type="hidden" name="csrf" value="{{.CSRF}}">
@@ -60,6 +67,53 @@
   </table></div>
 </section>
 {{end}}
+{{else}}
+{{if .Instances}}
+<section class="card flush">
+  <div class="row"><h2>{{icon "database"}} Instancias</h2></div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Instancia</th><th class="hide-sm">Servidor</th><th class="num">Bases</th><th class="num">Espacio</th><th></th></tr></thead>
+    <tbody>
+    {{range .Instances}}
+      <tr data-href="/databases/x/{{.Key}}">
+        <td><a href="/databases/x/{{.Key}}"><strong>{{.Name}}</strong></a>{{if .Main}} <span class="badge">principal</span>{{end}}<br>
+          <span class="muted small">{{.User}}@{{.Host}}:{{.Port}}</span></td>
+        <td class="small hide-sm">{{with .Summary}}{{.Version}}{{else}}<span class="badge err" title="{{.Err}}">sin conexión</span>{{end}}</td>
+        <td class="num">{{if .Summary}}{{.UserDBs}}{{else}}—{{end}}</td>
+        <td class="num">{{if .Summary}}{{size .Bytes}}{{else}}—{{end}}</td>
+        <td class="num">{{if not .Main}}
+          <form method="post" action="/databases/instances/{{.ID}}/delete" class="inline"
+                data-confirm="¿Quitar la instancia {{.Name}}?"
+                data-confirm-text="world deja de mostrarla y borra su contraseña guardada. El servidor {{.Host}} y sus bases no se tocan."
+                data-confirm-button="Sí, quitar">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <button type="submit" class="sm ghost danger" title="Quitar de world">{{icon "trash"}}</button>
+          </form>{{end}}</td>
+      </tr>
+      {{with .Err}}<tr><td colspan="5" class="small muted">{{.}}</td></tr>{{end}}
+    {{end}}
+    </tbody>
+  </table></div>
+</section>
+{{end}}
+
+<details class="card"{{if or .Form.host (not .Instances)}} open{{end}}>
+  <summary><h2 class="inline">{{icon "plus"}} Agregar instancia</h2></summary>
+  <form method="post" action="/databases/instances" class="stack">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <p class="muted small">Otro servidor MySQL o MariaDB para explorar (por ejemplo, el de un cPanel antes de migrarlo). Si puedes, usa un usuario de solo lectura: world solo consulta.</p>
+    <label>Nombre (opcional)<input name="name" value="{{.Form.name}}" placeholder="cPanel 5sconsultores" autocomplete="off"></label>
+    <div class="cols">
+      <label>Host<input name="host" value="{{.Form.host}}" placeholder="38.18.230.11" required autocomplete="off" spellcheck="false"></label>
+      <label>Puerto<input name="port" value="{{.Form.port}}" inputmode="numeric" required></label>
+    </div>
+    <div class="cols">
+      <label>Usuario<input name="user" value="{{.Form.user}}" required autocomplete="off" spellcheck="false"></label>
+      <label>Contraseña<input name="password" type="password" required autocomplete="new-password"><small>Se guarda cifrada.</small></label>
+    </div>
+    <div class="actions"><button type="submit">{{icon "check"}} Probar y agregar</button></div>
+  </form>
+</details>
 
 <section class="card" id="maindb">
   <h2>{{icon "settings"}} Conexión a MainDB</h2>
@@ -79,4 +133,5 @@
     <div class="actions"><button type="submit">{{icon "check"}} Probar y guardar</button></div>
   </form>
 </section>
+{{end}}
 {{end}}

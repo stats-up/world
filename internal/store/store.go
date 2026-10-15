@@ -204,6 +204,17 @@ var migrations = []string{
 
 	// 9: filas y bytes estimados por tabla del origen (avance por registros).
 	`ALTER TABLE db_migrations ADD COLUMN table_stats TEXT NOT NULL DEFAULT '';`,
+
+	// 10: otras instancias MySQL/MariaDB para el explorador (la contraseña va cifrada).
+	`CREATE TABLE db_instances (
+		id         INTEGER PRIMARY KEY,
+		name       TEXT    NOT NULL,
+		host       TEXT    NOT NULL,
+		port       INTEGER NOT NULL,
+		user       TEXT    NOT NULL,
+		pass_enc   BLOB    NOT NULL,
+		created_at INTEGER NOT NULL
+	);`,
 }
 
 func (s *Store) migrate() error {
