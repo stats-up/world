@@ -166,6 +166,8 @@ func TestDatabasePagesRender(t *testing.T) {
 		"databases":          {"MainDB": main, "MainReady": true, "Migrations": []*store.DBMigration{running, &failed}, "Form": map[string]string{"src_port": "3306"}},
 		"databases#empty":    {"MainDB": dbmigrate.Conn{Port: 3306}, "MainReady": false, "Form": map[string]string{}, "Error": "Falta algo"},
 		"db_migration":       {"Mig": running, "Status": data{"Mig": running, "Log": "-- Table structure for table `a`", "CSRF": "tok"}},
+		"db_migration#live": {"Mig": running, "Status": data{"Mig": running, "CSRF": "tok", "Live": &dbmigrate.Live{Table: "request_applicant_service_files",
+			Rows: 1234567, RowsEst: 2500000, Received: 13 << 30, Idle: 30 * time.Minute, DBState: "waiting for handler commit", DBTime: 1800}}},
 		"db_migration#error": {"Mig": &failed, "Status": data{"Mig": &failed, "Log": "ERROR 1419", "CSRF": "tok"}},
 	}
 	for name, d := range pages {
@@ -180,6 +182,7 @@ func TestDatabasePagesRender(t *testing.T) {
 			"databases":          {`hx-post="/databases/probe"`, "dbmasteruser@ls-x.rds.amazonaws.com", "cp_tienda", "10 / 40"},
 			"databases#empty":    {"Falta algo", "disabled title=\"Primero configura"},
 			"db_migration":       {`hx-get="/databases/migrations/4/status"`, "Cancelar", "data-follow"},
+			"db_migration#live":  {"request_applicant_service_files", "1.234.567", "2.500.000", "(49%)", "13.0 GB", "detenido", "Sin datos nuevos desde hace 30m0s", "1800 s en «waiting for handler commit»"},
 			"db_migration#error": {"Error 1419", `action="/databases/migrations/4/drop"`, "data-confirm="},
 		}[name]
 		for _, want := range checks {

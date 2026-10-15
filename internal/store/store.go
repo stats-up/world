@@ -201,6 +201,9 @@ var migrations = []string{
 		started_at   INTEGER NOT NULL,
 		finished_at  INTEGER NOT NULL DEFAULT 0
 	);`,
+
+	// 9: filas y bytes estimados por tabla del origen (avance por registros).
+	`ALTER TABLE db_migrations ADD COLUMN table_stats TEXT NOT NULL DEFAULT '';`,
 }
 
 func (s *Store) migrate() error {

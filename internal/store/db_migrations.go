@@ -22,6 +22,7 @@ type DBMigration struct {
 	TablesTotal int
 	TablesDone  int
 	BytesEst    int64 // tamaño aproximado del origen (datos + índices)
+	TableStats  string // JSON con filas y bytes estimados por tabla del origen
 	StartedAt   time.Time
 	FinishedAt  time.Time
 }
@@ -43,13 +44,13 @@ func (m *DBMigration) Percent() int {
 	return min(100, m.TablesDone*100/m.TablesTotal)
 }
 
-const dbMigCols = `id, src_host, src_port, src_user, src_db, dst_db, status, error, tables_total, tables_done, bytes_est, started_at, finished_at`
+const dbMigCols = `id, src_host, src_port, src_user, src_db, dst_db, status, error, tables_total, tables_done, bytes_est, started_at, finished_at, table_stats`
 
 func scanDBMig(row interface{ Scan(...any) error }) (*DBMigration, error) {
 	var m DBMigration
 	var started, finished int64
 	if err := row.Scan(&m.ID, &m.SrcHost, &m.SrcPort, &m.SrcUser, &m.SrcDB, &m.DstDB, &m.Status, &m.Error,
-		&m.TablesTotal, &m.TablesDone, &m.BytesEst, &started, &finished); err != nil {
+		&m.TablesTotal, &m.TablesDone, &m.BytesEst, &started, &finished, &m.TableStats); err != nil {
 		return nil, notFound(err)
 	}
 	m.StartedAt = time.Unix(started, 0)
@@ -60,8 +61,8 @@ func scanDBMig(row interface{ Scan(...any) error }) (*DBMigration, error) {
 }
 
 func (s *Store) CreateDBMigration(m *DBMigration) (int64, error) {
-	res, err := s.db.Exec(`INSERT INTO db_migrations (src_host, src_port, src_user, src_db, dst_db, status, tables_total, bytes_est, started_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, m.SrcHost, m.SrcPort, m.SrcUser, m.SrcDB, m.DstDB, DBMigRunning, m.TablesTotal, m.BytesEst, time.Now().Unix())
+	res, err := s.db.Exec(`INSERT INTO db_migrations (src_host, src_port, src_user, src_db, dst_db, status, tables_total, bytes_est, started_at, table_stats)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, m.SrcHost, m.SrcPort, m.SrcUser, m.SrcDB, m.DstDB, DBMigRunning, m.TablesTotal, m.BytesEst, time.Now().Unix(), m.TableStats)
 	if err != nil {
 		return 0, err
 	}

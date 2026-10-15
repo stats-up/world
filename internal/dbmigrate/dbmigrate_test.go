@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"world/internal/secret"
 )
@@ -197,3 +198,24 @@ type memStore map[string]string
 
 func (m memStore) Setting(k string) string      { return m[k] }
 func (m memStore) SetSetting(k, v string) error { m[k] = v; return nil }
+
+func TestLiveTracker(t *testing.T) {
+	var tr liveTracker
+	t0 := time.Now()
+	tr.addRx(t0, 0)
+	tr.addRx(t0.Add(10*time.Second), 10<<20)
+	if l := tr.get(); l.Rate != 1<<20 || l.Idle != 0 || l.Stalled() {
+		t.Fatalf("%+v", l)
+	}
+	tr.addRx(t0.Add(3*time.Minute), 10<<20)
+	if l := tr.get(); !l.Stalled() || l.Idle != 170*time.Second {
+		t.Fatalf("detenido: %+v", l)
+	}
+	if got := CurrentTable(mariaDump); got != "logs" {
+		t.Error(got)
+	}
+	m := DecodeTableStats(EncodeTableStats(map[string]TableStat{"a": {Rows: 5, Bytes: 9}}))
+	if m["a"].Rows != 5 || (&Live{Rows: 5, RowsEst: 10}).RowsPercent() != 50 {
+		t.Error(m)
+	}
+}

@@ -96,6 +96,7 @@ type Request struct {
 	Tables  int
 	Bytes   int64
 	ToUTF8  bool // convertir latin1 a utf8mb4
+	Stats   map[string]TableStat
 }
 
 type Migrator struct {
@@ -107,10 +108,11 @@ type Migrator struct {
 	mu       sync.Mutex
 	ctx      context.Context
 	watching map[int64]bool
+	live     map[int64]*liveTracker
 }
 
 func NewMigrator(dc *docker.Client, cfg config.Config, st *store.Store, target func() Conn) *Migrator {
-	return &Migrator{dc: dc, cfg: cfg, st: st, target: target, ctx: context.Background(), watching: map[int64]bool{}}
+	return &Migrator{dc: dc, cfg: cfg, st: st, target: target, ctx: context.Background(), watching: map[int64]bool{}, live: map[int64]*liveTracker{}}
 }
 
 func containerName(id int64) string { return fmt.Sprintf("world-dbmigrate-%d", id) }
@@ -142,7 +144,8 @@ func (m *Migrator) Start(ctx context.Context, req Request) (int64, error) {
 		return 0, fmt.Errorf("creando la base %s en MainDB: %w", req.DstDB, err)
 	}
 	id, err := m.st.CreateDBMigration(&store.DBMigration{SrcHost: req.Source.Host, SrcPort: req.Source.Port, SrcUser: req.Source.User,
-		SrcDB: req.Source.Database, DstDB: req.DstDB, TablesTotal: req.Tables, BytesEst: req.Bytes})
+		SrcDB: req.Source.Database, DstDB: req.DstDB, TablesTotal: req.Tables, BytesEst: req.Bytes,
+		TableStats: EncodeTableStats(req.Stats)})
 	if err != nil {
 		return 0, err
 	}
@@ -232,16 +235,58 @@ func (m *Migrator) watch(id int64) {
 	go m.follow(m.ctx, id)
 }
 
+// Live devuelve lo medido de una copia en curso (nil si no se está siguiendo).
+func (m *Migrator) Live(id int64) *Live {
+	m.mu.Lock()
+	t := m.live[id]
+	m.mu.Unlock()
+	if t == nil {
+		return nil
+	}
+	l := t.get()
+	return &l
+}
+
 func (m *Migrator) follow(ctx context.Context, id int64) {
+	tracker := &liveTracker{}
+	m.mu.Lock()
+	m.live[id] = tracker
+	m.mu.Unlock()
 	defer func() {
 		m.mu.Lock()
 		delete(m.watching, id)
+		delete(m.live, id)
 		m.mu.Unlock()
 	}()
+	var stats map[string]TableStat
+	if mig, err := m.st.DBMigration(id); err == nil {
+		stats = DecodeTableStats(mig.TableStats)
+	}
 	name := containerName(id)
 	t := time.NewTicker(pollEvery)
 	defer t.Stop()
-	for {
+	for tick := 0; ; tick++ {
+		if st, err := m.dc.ContainerStats(ctx, name); err == nil {
+			var rx int64
+			for _, n := range st.Networks {
+				rx += int64(n.RxBytes)
+			}
+			tracker.addRx(time.Now(), rx)
+		}
+		if tick%5 == 0 { // cada ~15 s: filas en MainDB y estado del servidor
+			table := CurrentTable(m.Log(id))
+			if mig, err := m.st.DBMigration(id); err == nil {
+				qctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				rows, state, secs, err := targetProgress(qctx, m.target(), mig.DstDB, table)
+				cancel()
+				if err == nil {
+					tracker.set(func(l *Live) {
+						l.Table, l.Rows, l.RowsEst = table, rows, stats[table].Rows
+						l.DBState, l.DBTime = state, secs
+					})
+				}
+			}
+		}
 		info, err := m.dc.ContainerInspect(ctx, name)
 		if docker.IsNotFound(err) {
 			m.st.FinishDBMigration(id, store.DBMigFailed, "Se interrumpió (se reinició el servidor o se quitó el contenedor). Vacía la base de destino y migra de nuevo.")

@@ -17,7 +17,22 @@
     <div><dt>Tablas</dt><dd>{{.Mig.TablesDone}} <small>de {{.Mig.TablesTotal}}</small></dd></div>
     <div><dt>Tamaño del origen</dt><dd>≈ {{size .Mig.BytesEst}}</dd></div>
     <div><dt>{{if .Mig.Running}}Tiempo{{else}}Duración{{end}}</dt><dd>{{.Mig.Duration}}</dd></div>
+    {{with .Live}}
+    <div><dt>Recibido del origen</dt><dd>{{size .Received}} <small>{{if .Stalled}}detenido{{else}}{{size .RatePerSec}}/s{{end}}</small></dd></div>
+    {{end}}
   </dl>
+  {{with .Live}}{{if .Table}}
+  <div class="stack">
+    <div class="row"><div>Copiando <code>{{.Table}}</code></div>
+      <div class="muted small">≈ {{num .Rows}}{{if .RowsEst}} de ≈ {{num .RowsEst}} registros ({{.RowsPercent}}%){{else}} registros{{end}}</div></div>
+    {{if .RowsEst}}{{progress .RowsPercent}}{{end}}
+    <p class="muted small">Los registros son una estimación de MySQL: se actualiza cada pocos segundos y puede variar ±10%.</p>
+  </div>
+  {{end}}
+  {{if .Stalled}}<div class="flash error">{{icon "alert"}}<div><strong>Sin datos nuevos desde hace {{.Idle}}.</strong>
+    {{with .DBState}}MainDB lleva {{$.Live.DBTime}} s en «{{.}}».{{end}}
+    Si sigue así, revisa en Lightsail las métricas de MainDB: espacio libre en disco y capacidad de ráfaga de CPU (si llegan a 0, la copia se queda esperando).</div></div>{{end}}
+  {{end}}
   {{if eq .Mig.Status "success"}}
   <div class="flash ok">{{icon "check"}}<div><strong>Migración completada.</strong>{{with .Mig.Error}} {{.}}{{end}}
     Para usarla en un sitio, en su <code>.env</code>: <code>DB_HOST={{.MainHost}}</code> y <code>DB_DATABASE={{.Mig.DstDB}}</code>, con un usuario de MainDB que tenga acceso a esa base.</div></div>

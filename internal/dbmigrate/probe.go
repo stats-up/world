@@ -117,6 +117,7 @@ type SourceInfo struct {
 	NonInnoDB  []string // tablas MyISAM/Aria: se copian, pero sin lectura consistente
 	Warnings   []string
 	TableNames []string
+	TableStats map[string]TableStat
 }
 
 func (s *SourceInfo) MariaDB() bool { return strings.Contains(strings.ToLower(s.Version), "mariadb") }
@@ -131,7 +132,7 @@ func ProbeSource(ctx context.Context, c Conn) (*SourceInfo, error) {
 		return nil, err
 	}
 	defer db.Close()
-	info := &SourceInfo{}
+	info := &SourceInfo{TableStats: map[string]TableStat{}}
 	if err := db.QueryRowContext(ctx, `SELECT VERSION()`).Scan(&info.Version); err != nil {
 		return nil, err
 	}
@@ -160,6 +161,7 @@ func ProbeSource(ctx context.Context, c Conn) (*SourceInfo, error) {
 		info.Rows += n
 		info.Bytes += size
 		info.TableNames = append(info.TableNames, name)
+		info.TableStats[name] = TableStat{Rows: n, Bytes: size}
 		if strings.HasPrefix(collation, "latin1") {
 			info.Latin1++
 		}

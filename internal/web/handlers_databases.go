@@ -174,7 +174,8 @@ func (s *Server) migrationCreate(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute) // puede descargar la imagen de MySQL
 	defer cancel()
 	req := dbmigrate.Request{Source: src, DstDB: form["dst_db"], Charset: p.Source.Charset,
-		Collate: p.Source.Collation, Tables: p.Source.Tables, Bytes: p.Source.Bytes, ToUTF8: form["to_utf8"] == "1"}
+		Collate: p.Source.Collation, Tables: p.Source.Tables, Bytes: p.Source.Bytes, ToUTF8: form["to_utf8"] == "1",
+		Stats: p.Source.TableStats}
 	if req.ToUTF8 && strings.HasPrefix(strings.ToLower(req.Charset), "latin1") {
 		req.Charset, req.Collate = "utf8mb4", "utf8mb4_unicode_ci"
 	}
@@ -201,7 +202,13 @@ func (s *Server) loadMigration(w http.ResponseWriter, r *http.Request) (*store.D
 }
 
 func (s *Server) migrationData(m *store.DBMigration, csrf string) data {
-	return data{"Mig": m, "Log": lastLines(s.dbmig.Log(m.ID), 400), "CSRF": csrf, "MainHost": s.mainDB().Host}
+	d := data{"Mig": m, "Log": lastLines(s.dbmig.Log(m.ID), 400), "CSRF": csrf, "MainHost": s.mainDB().Host}
+	if m.Running() {
+		if l := s.dbmig.Live(m.ID); l != nil {
+			d["Live"] = l
+		}
+	}
+	return d
 }
 
 func (s *Server) migrationShow(w http.ResponseWriter, r *http.Request) {
