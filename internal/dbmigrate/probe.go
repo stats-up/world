@@ -113,6 +113,7 @@ type SourceInfo struct {
 	Bytes      int64 // datos + índices, aproximado
 	Charset    string
 	Collation  string
+	Latin1     int      // tablas con intercalación latin1
 	NonInnoDB  []string // tablas MyISAM/Aria: se copian, pero sin lectura consistente
 	Warnings   []string
 	TableNames []string
@@ -139,15 +140,15 @@ func ProbeSource(ctx context.Context, c Conn) (*SourceInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("leyendo la base %s: %w", c.Database, err)
 	}
-	rows, err := db.QueryContext(ctx, `SELECT table_name, table_type, COALESCE(engine, ''), COALESCE(table_rows, 0),
+	rows, err := db.QueryContext(ctx, `SELECT table_name, table_type, COALESCE(engine, ''), COALESCE(table_collation, ''), COALESCE(table_rows, 0),
 		COALESCE(data_length, 0) + COALESCE(index_length, 0) FROM information_schema.tables WHERE table_schema = ? ORDER BY table_name`, c.Database)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		var name, typ, engine string
+		var name, typ, engine, collation string
 		var n, size int64
-		if err := rows.Scan(&name, &typ, &engine, &n, &size); err != nil {
+		if err := rows.Scan(&name, &typ, &engine, &collation, &n, &size); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -159,6 +160,9 @@ func ProbeSource(ctx context.Context, c Conn) (*SourceInfo, error) {
 		info.Rows += n
 		info.Bytes += size
 		info.TableNames = append(info.TableNames, name)
+		if strings.HasPrefix(collation, "latin1") {
+			info.Latin1++
+		}
 		if engine != "" && !strings.EqualFold(engine, "InnoDB") {
 			info.NonInnoDB = append(info.NonInnoDB, name+" ("+engine+")")
 		}
@@ -178,6 +182,9 @@ func ProbeSource(ctx context.Context, c Conn) (*SourceInfo, error) {
 	}
 	if len(info.NonInnoDB) > 0 {
 		info.Warnings = append(info.Warnings, fmt.Sprintf("%d tabla(s) no son InnoDB: se copian, pero si se escribe en ellas durante la copia pueden quedar desfasadas. En MainDB quedan como InnoDB.", len(info.NonInnoDB)))
+	}
+	if info.Latin1 > 0 || strings.HasPrefix(info.Charset, "latin1") {
+		info.Warnings = append(info.Warnings, fmt.Sprintf("%d tabla(s) usan latin1. Deja marcada la conversión a utf8mb4: MySQL 8 rechaza vistas que mezclan latin1 con funciones JSON o texto utf8mb4 (error 1271).", info.Latin1))
 	}
 	if strings.Contains(info.Collation, "uca1400") {
 		info.Warnings = append(info.Warnings, "La base usa una intercalación de MariaDB 11 ("+info.Collation+") que MySQL no tiene: se cambia por utf8mb4_unicode_ci.")

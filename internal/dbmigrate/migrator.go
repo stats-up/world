@@ -46,12 +46,31 @@ const dumpOptions = "--single-transaction --quick --routines --triggers --events
 //   - registra cada tabla en el log (avance),
 //   - quita los DEFINER (los objetos quedan a nombre del usuario de MainDB),
 //   - cambia intercalaciones de MariaDB 11 que MySQL no tiene,
-//   - pasa Aria/MyISAM a InnoDB y quita opciones exclusivas de Aria.
-const sedProgram = "/^-- Table structure for table/w /dev/stderr\n" +
-	"s/DEFINER=`[^`]*`@`[^`]*`//g\n" +
-	"s/(utf8mb[34])_uca1400_[a-z0-9_]+/\\1_unicode_ci/g\n" +
-	"s/ENGINE=(Aria|MyISAM)/ENGINE=InnoDB/g\n" +
-	"s/ (PAGE_CHECKSUM|TRANSACTIONAL)=[01]//g\n"
+//   - pasa Aria/MyISAM a InnoDB y quita opciones exclusivas de Aria,
+//   - con toUTF8, pasa latin1 a utf8mb4 (tablas, columnas y la conexión de las vistas).
+//
+// Los cambios no se aplican a las líneas INSERT: los datos se copian tal cual, aunque
+// un texto guardado contenga algo como "ENGINE=MyISAM".
+func sedProgram(toUTF8 bool) string {
+	rules := []string{
+		"s/DEFINER=`[^`]*`@`[^`]*`//g",
+		`s/(utf8mb[34])_uca1400_[a-z0-9_]+/\1_unicode_ci/g`,
+		"s/ENGINE=(Aria|MyISAM)/ENGINE=InnoDB/g",
+		"s/ (PAGE_CHECKSUM|TRANSACTIONAL)=[01]//g",
+	}
+	if toUTF8 {
+		// MySQL 8 no mezcla latin1 con el utf8mb4 que devuelven las funciones JSON
+		// (ERROR 1271 al crear vistas que MariaDB sí aceptaba).
+		rules = append(rules,
+			`s/(COLLATE[ =])latin1_[a-z0-9_]+/\1utf8mb4_unicode_ci/g`,
+			`s/(CHARSET=|CHARACTER SET )latin1\b/\1utf8mb4/g`,
+			`s/(character_set_(client|results) *= *)latin1\b/\1utf8mb4/g`,
+			`s/(collation_connection *= *)latin1_[a-z0-9_]+/\1utf8mb4_unicode_ci/g`,
+		)
+	}
+	return "/^-- Table structure for table/w /dev/stderr\n" +
+		"/^INSERT INTO /!{\n" + strings.Join(rules, "\n") + "\n}\n"
+}
 
 // script corre dentro del contenedor. Todo lo que escribe va al log de la migración.
 const script = `set -eo pipefail
@@ -76,6 +95,7 @@ type Request struct {
 	Collate string
 	Tables  int
 	Bytes   int64
+	ToUTF8  bool // convertir latin1 a utf8mb4
 }
 
 type Migrator struct {
@@ -135,7 +155,7 @@ func (m *Migrator) Start(ctx context.Context, req Request) (int64, error) {
 		"SRC_HOST=" + req.Source.Host, "SRC_PORT=" + strconv.Itoa(req.Source.Port), "SRC_USER=" + req.Source.User,
 		"SRC_PASS=" + req.Source.Password, "SRC_DB=" + req.Source.Database,
 		"DST_HOST=" + dst.Host, "DST_PORT=" + strconv.Itoa(dst.Port), "DST_USER=" + dst.User, "DST_PASS=" + dst.Password,
-		"DST_DB=" + req.DstDB, "DUMP_OPTIONS=" + dumpOptions, "SED_PROGRAM=" + sedProgram,
+		"DST_DB=" + req.DstDB, "DUMP_OPTIONS=" + dumpOptions, "SED_PROGRAM=" + sedProgram(req.ToUTF8),
 	}
 	cid, err := m.dc.ContainerCreate(ctx, containerName(id), docker.ContainerConfig{
 		Image:      ClientImage,
@@ -323,6 +343,8 @@ func ExitMessage(code int, logText string) string {
 		return "Usuario o contraseña incorrectos. " + detail
 	case "2002", "2003", "2005", "2013":
 		return "Se perdió o no se pudo abrir la conexión. " + detail
+	case "1267", "1270", "1271":
+		return "MySQL 8 no acepta mezclar intercalaciones (típico: columnas latin1 con funciones JSON en una vista). Borra la base a medias y migra de nuevo con «Convertir tablas latin1 a utf8mb4» marcado. (" + detail + ")"
 	case "1273":
 		return "MainDB no conoce una intercalación (collation) del origen. " + detail
 	}

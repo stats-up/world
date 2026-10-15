@@ -29,6 +29,7 @@
     <legend>Destino: MainDB{{with .MainDB.Host}} <span class="muted small">({{.}})</span>{{end}}</legend>
     <label>Nombre de la base nueva<input name="dst_db" value="{{.Form.dst_db}}" placeholder="tienda" required pattern="[A-Za-z0-9_]{1,64}" autocomplete="off" spellcheck="false">
       <small>Letras, números y guion bajo. world la crea; si ya existe con datos, no se toca.</small></label>
+    <label class="check"><input type="checkbox" name="to_utf8" value="1"{{if ne .Form.to_utf8 "0"}} checked{{end}}> <span>Convertir tablas latin1 a utf8mb4 (recomendado: MySQL 8 rechaza vistas que mezclan latin1 con funciones JSON o utf8mb4)</span></label>
   </fieldset>
   <p class="note">El servidor de origen debe aceptar conexiones desde la IP de world. En cPanel: <em>Bases de datos → MySQL remoto</em> → agrega la IP del servidor.
     Si en el origen se escribe durante la copia, lo último puede no alcanzar a copiarse: migra en un momento tranquilo o con el sitio en mantenimiento.</p>

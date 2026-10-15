@@ -77,6 +77,10 @@ func migrationForm(r *http.Request) (map[string]string, dbmigrate.Conn, string) 
 	for _, k := range []string{"src_host", "src_port", "src_user", "src_db", "dst_db"} {
 		form[k] = strings.TrimSpace(r.FormValue(k))
 	}
+	form["to_utf8"] = "0"
+	if r.FormValue("to_utf8") == "1" {
+		form["to_utf8"] = "1"
+	}
 	port, _ := strconv.Atoi(form["src_port"])
 	src := dbmigrate.Conn{Host: form["src_host"], Port: port, User: form["src_user"], Password: r.FormValue("src_pass"), Database: form["src_db"]}
 	switch {
@@ -169,8 +173,12 @@ func (s *Server) migrationCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute) // puede descargar la imagen de MySQL
 	defer cancel()
-	id, err := s.dbmig.Start(ctx, dbmigrate.Request{Source: src, DstDB: form["dst_db"], Charset: p.Source.Charset,
-		Collate: p.Source.Collation, Tables: p.Source.Tables, Bytes: p.Source.Bytes})
+	req := dbmigrate.Request{Source: src, DstDB: form["dst_db"], Charset: p.Source.Charset,
+		Collate: p.Source.Collation, Tables: p.Source.Tables, Bytes: p.Source.Bytes, ToUTF8: form["to_utf8"] == "1"}
+	if req.ToUTF8 && strings.HasPrefix(strings.ToLower(req.Charset), "latin1") {
+		req.Charset, req.Collate = "utf8mb4", "utf8mb4_unicode_ci"
+	}
+	id, err := s.dbmig.Start(ctx, req)
 	if err != nil {
 		s.renderDatabases(w, r, form, "No se pudo iniciar: "+err.Error())
 		return
