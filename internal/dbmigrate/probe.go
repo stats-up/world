@@ -75,8 +75,14 @@ func connError(err error, c Conn) error {
 		switch me.Number {
 		case 1045:
 			return fmt.Errorf("usuario o contraseña incorrectos (o el usuario no puede entrar desde la IP de este servidor)")
-		case 1044, 1049:
-			return fmt.Errorf("la base %q no existe o el usuario no tiene acceso a ella", c.Database)
+		case 1044:
+			// En cPanel: el usuario entra desde la IP remota, pero sus permisos sobre la base
+			// solo existen para 'localhost' (se resuelve volviendo a asignar los privilegios).
+			return fmt.Errorf("el usuario entra, pero no tiene permisos sobre la base %q desde la IP de este servidor. "+
+				"En cPanel: Bases de datos MySQL → «Agregar usuario a la base de datos» → elige el usuario y la base → marca TODOS LOS PRIVILEGIOS → Realizar cambios. "+
+				"Así cPanel copia los permisos también al acceso remoto. (MySQL 1044: %s)", c.Database, me.Message)
+		case 1049:
+			return fmt.Errorf("la base %q no existe en ese servidor (revisa mayúsculas y el prefijo de cPanel). (MySQL 1049: %s)", c.Database, me.Message)
 		case 1130:
 			return fmt.Errorf("el servidor no acepta conexiones desde la IP de este servidor: agrégala en «MySQL remoto» del cPanel o en los permisos del usuario")
 		}
