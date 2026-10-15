@@ -1,0 +1,39 @@
+{{define "title"}}Buckets{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>Buckets</h1>
+    <p class="sub">Espacio usado en tus buckets S3 y en sus carpetas, de mayor a menor. world solo lee: nunca modifica ni borra archivos.</p>
+  </div>
+  {{if .Buckets}}<div class="actions"><a class="button primary" href="/buckets/new">{{icon "plus"}} Agregar bucket</a></div>{{end}}
+</div>
+
+{{if .Buckets}}
+<section class="card flush">
+  <div class="table-wrap"><table class="table sizes">
+    <thead><tr><th>Bucket</th><th class="num">Espacio</th><th class="share hide-sm"></th><th class="num hide-sm">Objetos</th><th class="hide-sm">Medido</th></tr></thead>
+    <tbody>
+    {{range .Buckets}}{{$p := .Pct}}{{with .B}}
+      <tr data-href="/buckets/{{.ID}}">
+        <td><a href="/buckets/{{.ID}}"><strong>{{.Name}}</strong></a>{{if ne .Name .Bucket}} <span class="muted small">{{.Bucket}}</span>{{end}}<br><span class="muted small">{{.Region}}{{with .Endpoint}} · {{.}}{{end}}</span></td>
+        <td class="num"><strong>{{if .ScannedAt.IsZero}}—{{else}}{{size .TotalBytes}}{{end}}</strong></td>
+        <td class="share hide-sm">{{if not .ScannedAt.IsZero}}{{progress $p}}{{end}}</td>
+        <td class="num hide-sm">{{if not .ScannedAt.IsZero}}{{num .TotalObjects}}{{end}}</td>
+        <td class="small hide-sm">{{if .Scanning}}<span class="badge warn">midiendo…</span>{{else if eq .ScanStatus "failed"}}<span class="badge err" title="{{.ScanError}}">con error</span>{{else}}{{ago .ScannedAt}}{{end}}</td>
+      </tr>
+    {{end}}
+    {{end}}
+    </tbody>
+    <tfoot><tr><td>Total</td><td class="num"><strong>{{size .Total}}</strong></td><td class="hide-sm" colspan="3"></td></tr></tfoot>
+  </table></div>
+</section>
+<p class="muted small table-note">Cada bucket se vuelve a medir solo una vez al día. Para actualizarlo antes, entra al bucket y usa «Medir ahora».</p>
+{{else}}
+<div class="card empty-state">
+  {{icon "database"}}
+  <strong>Todavía no hay buckets</strong>
+  <p>Agrega uno con sus llaves de acceso para ver cuánto espacio usa y en qué carpetas.</p>
+  <div class="actions"><a class="button primary" href="/buckets/new">{{icon "plus"}} Agregar bucket</a></div>
+</div>
+{{end}}
+{{end}}

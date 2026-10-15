@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"world/internal/auth"
+	"world/internal/bucket"
 	"world/internal/config"
 	"world/internal/deploy"
 	"world/internal/docker"
@@ -49,6 +50,7 @@ type Server struct {
 	mail    *mail.Manager
 	mailAPI *mail.Client
 	imports *mail.Importer
+	buckets *bucket.Scanner
 	mon     *monitor.Monitor
 	version string
 
@@ -63,6 +65,7 @@ func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box,
 	adminSecret := func() string { return mail.LoadSettings(st, box).AdminSecret }
 	s.mailAPI = mail.NewClient(dc, adminSecret)
 	s.imports = mail.NewImporter(dc, cfg, st, adminSecret)
+	s.buckets = bucket.NewScanner(st, box)
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}
@@ -192,6 +195,13 @@ func (s *Server) Handler() http.Handler {
 	priv("GET /settings", s.settingsForm)
 	priv("POST /settings", s.settingsSubmit)
 	priv("POST /settings/mail", s.mailSettingsSubmit)
+	priv("GET /buckets", s.bucketIndex)
+	priv("GET /buckets/new", s.bucketNew)
+	priv("POST /buckets", s.bucketCreate)
+	priv("GET /buckets/{id}", s.bucketShow)
+	priv("GET /buckets/{id}/status", s.bucketStatus)
+	priv("POST /buckets/{id}/scan", s.bucketScan)
+	priv("POST /buckets/{id}/delete", s.bucketDelete)
 	priv("GET /mail", s.mailIndex)
 	priv("GET /mail/domains/new", s.mailDomainNew)
 	priv("POST /mail/domains", s.mailDomainCreate)

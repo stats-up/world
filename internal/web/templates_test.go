@@ -102,3 +102,50 @@ func TestMailPagesRender(t *testing.T) {
 		}
 	}
 }
+
+func TestBucketPagesRender(t *testing.T) {
+	s := &Server{pages: map[string]*template.Template{}}
+	if err := s.parseTemplates(); err != nil {
+		t.Fatal(err)
+	}
+	b := &store.Bucket{ID: 3, Name: "Archivos", Bucket: "bucket-statsup", Region: "sa-east-1", ScanStatus: store.ScanOK,
+		ScannedAt: time.Now(), TotalBytes: 3 << 30, TotalObjects: 1200}
+	failed := *b
+	failed.ScanStatus, failed.ScanError = store.ScanFailed, "las llaves no tienen permiso"
+	rows := []folderRow{{Name: "fotos/", Prefix: "docs/fotos/", Bytes: 2 << 30, Objects: 1000, Pct: 67},
+		{Bytes: 1 << 30, Objects: 200, Pct: 33}}
+	pages := map[string]data{
+		"buckets": {"Buckets": []struct {
+			B   *store.Bucket
+			Pct int
+		}{{b, 100}}, "Total": b.TotalBytes},
+		"bucket_new": {"Form": map[string]string{"region": "sa-east-1"}, "Error": "No se pudo leer el bucket"},
+		"bucket": {"Bucket": b, "Prefix": "docs/", "Crumbs": crumbs("docs/"), "Scan": data{"Bucket": b, "Running": false},
+			"Folder": &store.BucketFolder{Prefix: "docs/", Bytes: 3 << 30, Objects: 1200}, "Rows": rows, "Hidden": 4},
+		"bucket#escaneando": {"Bucket": &failed, "Prefix": "", "Scan": data{"Bucket": &failed, "Running": true, "Counted": int64(5000)}},
+	}
+	for name, d := range pages {
+		page, _, _ := strings.Cut(name, "#")
+		d["CSRF"] = "tok"
+		var out strings.Builder
+		if err := s.pages[page].ExecuteTemplate(&out, "layout", d); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		html := out.String()
+		switch name {
+		case "bucket":
+			for _, want := range []string{"2.0 GB", "Archivos sueltos en esta carpeta", `href="/buckets/3?p=docs%2ffotos%2f"`, "4 carpetas más"} {
+				if !strings.Contains(html, want) {
+					t.Errorf("bucket: falta %q", want)
+				}
+			}
+			if strings.Index(html, "fotos/") > strings.Index(html, "Archivos sueltos") {
+				t.Error("las filas deben quedar en el orden recibido (de mayor a menor)")
+			}
+		case "bucket#escaneando":
+			if !strings.Contains(html, "5.000 objetos contados") || !strings.Contains(html, `hx-get="/buckets/3/status"`) {
+				t.Error("debe mostrar el avance y actualizarse solo")
+			}
+		}
+	}
+}

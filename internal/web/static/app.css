@@ -337,6 +337,12 @@ pre.log {
 pre.log.short { max-height: 20rem; }
 .probe-btn .loading, .probe-btn.htmx-request .idle { display: none; }
 .probe-btn.htmx-request .loading { display: inline; }
+/* --- Buckets --- */
+.table.sizes .share { width: 28%; min-width: 6rem; }
+.table.sizes td.share svg.bar { height: 8px; }
+.table.sizes tfoot td { border-top: 1px solid var(--border); color: var(--muted); font-weight: 600; }
+.folder-link { display: inline-flex; align-items: center; gap: .45rem; word-break: break-all; }
+.folder-link .i { flex: none; color: var(--muted); }
 .import-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; margin: 0; }
 .import-stats div { background: var(--code-bg); border-radius: var(--radius-sm); padding: .6rem .8rem; }
 .import-stats dt { font-size: .8rem; color: var(--muted); }

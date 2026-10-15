@@ -1,0 +1,72 @@
+{{define "title"}}{{.Bucket.Name}} · Buckets{{end}}
+{{define "content"}}
+<nav class="crumbs"><a href="/buckets">Buckets</a>{{icon "chevron"}}{{if .Crumbs}}<a href="/buckets/{{.Bucket.ID}}">{{.Bucket.Name}}</a>{{range .Crumbs}}{{icon "chevron"}}{{if eq .Prefix $.Prefix}}<span>{{.Name}}</span>{{else}}<a href="/buckets/{{$.Bucket.ID}}?p={{.Prefix}}">{{.Name}}</a>{{end}}{{end}}{{else}}<span>{{.Bucket.Name}}</span>{{end}}</nav>
+<div class="page-head">
+  <div class="page-title">
+    <span class="avatar">{{icon "database"}}</span>
+    <div>
+      <h1>{{if .Prefix}}{{.Prefix}}{{else}}{{.Bucket.Name}}{{end}}</h1>
+      <p class="sub"><code>{{.Bucket.Bucket}}</code> · {{.Bucket.Region}}{{with .Bucket.Endpoint}} · {{.}}{{end}}</p>
+    </div>
+  </div>
+  <div class="actions">
+    <form method="post" action="/buckets/{{.Bucket.ID}}/scan" class="inline">
+      <input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="p" value="{{.Prefix}}">
+      <button type="submit"{{if .Scan.Running}} disabled{{end}}>{{icon "refresh"}} Medir ahora</button>
+    </form>
+  </div>
+</div>
+
+{{template "bucket_scan" .Scan}}
+
+{{with .Folder}}
+<div class="stats">
+  <div class="stat"><span>Espacio usado</span><strong>{{size .Bytes}}</strong><small>{{if $.Prefix}}en esta carpeta{{else}}en todo el bucket{{end}}</small></div>
+  <div class="stat"><span>Objetos</span><strong>{{num .Objects}}</strong></div>
+  <div class="stat"><span>Medido</span><strong class="small">{{ago $.Bucket.ScannedAt}}</strong></div>
+</div>
+{{end}}
+
+{{if .Missing}}
+<div class="card empty-state">{{icon "folder"}}<strong>Esta carpeta no aparece en la última medición</strong>
+  <div class="actions"><a class="button" href="/buckets/{{.Bucket.ID}}">{{icon "back"}} Volver a la raíz</a></div></div>
+{{else if .Rows}}
+<section class="card flush">
+  <div class="table-wrap"><table class="table sizes">
+    <thead><tr><th>Carpeta</th><th class="num">Espacio</th><th class="share"></th><th class="num">%</th><th class="num hide-sm">Objetos</th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+      {{if .Prefix}}<tr data-href="/buckets/{{$.Bucket.ID}}?p={{.Prefix}}">
+        <td><a href="/buckets/{{$.Bucket.ID}}?p={{.Prefix}}" class="folder-link">{{icon "folder"}} {{.Name}}</a></td>
+      {{else}}<tr>
+        <td><span class="folder-link muted">{{icon "file"}} Archivos sueltos en esta carpeta</span></td>
+      {{end}}
+        <td class="num"><strong>{{size .Bytes}}</strong></td>
+        <td class="share">{{progress .Pct}}</td>
+        <td class="num small">{{.Pct}}%</td>
+        <td class="num small hide-sm">{{num .Objects}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+</section>
+{{if .Hidden}}<p class="muted small table-note">Hay {{.Hidden}} carpetas más pequeñas que no se muestran.</p>{{end}}
+{{if .Bucket.Truncated}}<p class="muted small table-note">El bucket tiene más de 200.000 carpetas: las más profundas se sumaron a su carpeta superior. Los totales son exactos.</p>{{end}}
+{{else if .Folder}}
+<div class="card empty-state">{{icon "folder"}}<strong>Carpeta vacía</strong></div>
+{{end}}
+
+{{if not .Prefix}}
+<section class="card danger">
+  <h2>{{icon "trash"}} Quitar de world</h2>
+  <p class="muted small">Deja de medir este bucket y borra sus llaves de world. El bucket y sus archivos no se tocan.</p>
+  <form method="post" action="/buckets/{{.Bucket.ID}}/delete"
+        data-confirm="¿Quitar {{.Bucket.Name}} de world?"
+        data-confirm-text="Se borran de world las llaves de acceso y las mediciones del bucket {{.Bucket.Bucket}}. El bucket y sus archivos NO se tocan."
+        data-confirm-button="Sí, quitar">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <button type="submit" class="danger">{{icon "trash"}} Quitar bucket</button>
+  </form>
+</section>
+{{end}}
+{{end}}

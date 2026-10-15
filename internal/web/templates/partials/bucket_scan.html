@@ -1,0 +1,5 @@
+{{define "bucket_scan"}}<div id="bucket-scan"{{if .Running}} hx-get="/buckets/{{.Bucket.ID}}/status" hx-trigger="every 2s" hx-swap="outerHTML"{{end}}>
+{{if .Running}}<div class="flash warn">{{icon "clock"}}<div><strong>Midiendo el bucket…</strong> {{num .Counted}} objetos contados. Con buckets grandes puede tardar unos minutos; puedes salir de esta página.</div></div>
+{{else if eq .Bucket.ScanStatus "failed"}}<div class="flash error">{{icon "alert"}}<div><strong>La última medición falló:</strong> {{.Bucket.ScanError}}{{if not .Bucket.ScannedAt.IsZero}} <span class="small">Se muestran los datos de la medición anterior.</span>{{end}}</div></div>
+{{end}}
+</div>{{end}}

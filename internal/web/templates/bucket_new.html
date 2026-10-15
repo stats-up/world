@@ -1,0 +1,33 @@
+{{define "title"}}Agregar bucket · Buckets{{end}}
+{{define "content"}}
+<nav class="crumbs"><a href="/buckets">Buckets</a>{{icon "chevron"}}<span>Agregar</span></nav>
+<div class="page-head"><div><h1>Agregar bucket</h1>
+  <p class="sub">world lista los objetos para medir el espacio. Basta con llaves de solo lectura.</p></div></div>
+
+{{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+<form method="post" action="/buckets" class="card stack">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <div class="cols">
+    <label>Bucket<input name="bucket" value="{{.Form.bucket}}" placeholder="bucket-statsup" required autofocus autocomplete="off" spellcheck="false"></label>
+    <label>Región<input name="region" value="{{.Form.region}}" list="regions" required autocomplete="off" spellcheck="false">
+      <small>La del bucket. São Paulo = <code>sa-east-1</code>.</small></label>
+  </div>
+  <label>Nombre para mostrar (opcional)<input name="name" value="{{.Form.name}}" placeholder="igual al bucket"></label>
+  <div class="cols">
+    <label>Access key<input name="access_key" value="{{.Form.access_key}}" required autocomplete="off" spellcheck="false"></label>
+    <label>Secret key<input name="secret_key" type="password" required autocomplete="new-password">
+      <small>Se guarda cifrada y no se vuelve a mostrar.</small></label>
+  </div>
+  <details{{if .Form.endpoint}} open{{end}}>
+    <summary class="small">Otro proveedor compatible con S3 (R2, MinIO…)</summary>
+    <label>Endpoint<input name="endpoint" value="{{.Form.endpoint}}" placeholder="https://cuenta.r2.cloudflarestorage.com" autocomplete="off" spellcheck="false">
+      <small>Déjalo vacío para AWS y Lightsail. En R2 la región es <code>auto</code>.</small></label>
+  </details>
+  <p class="note">En Lightsail: <em>Storage → tu bucket → Permissions → Access keys → Create access key</em>. Antes de guardar, world prueba que las llaves puedan listar el bucket.</p>
+  <div class="actions"><button type="submit" class="primary">{{icon "plus"}} Agregar y medir</button><a class="button ghost" href="/buckets">Cancelar</a></div>
+</form>
+<datalist id="regions">
+  <option value="sa-east-1"><option value="us-east-1"><option value="us-east-2"><option value="us-west-2">
+  <option value="eu-west-1"><option value="eu-central-1"><option value="auto">
+</datalist>
+{{end}}

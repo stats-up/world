@@ -154,6 +154,36 @@ var migrations = []string{
 
 	// 6: avance separado en revisados (incluye los que ya estaban) y migrados.
 	`ALTER TABLE mail_imports ADD COLUMN processed INTEGER NOT NULL DEFAULT 0;`,
+
+	// 7: buckets S3 que world mide (solo lectura) y el tamaño de sus carpetas en el último escaneo.
+	`CREATE TABLE buckets (
+		id            INTEGER PRIMARY KEY,
+		name          TEXT    NOT NULL,
+		bucket        TEXT    NOT NULL,
+		region        TEXT    NOT NULL,
+		endpoint      TEXT    NOT NULL DEFAULT '',
+		access_key    TEXT    NOT NULL,
+		secret_enc    BLOB    NOT NULL,
+		created_at    INTEGER NOT NULL,
+		scan_status   TEXT    NOT NULL DEFAULT '',
+		scan_error    TEXT    NOT NULL DEFAULT '',
+		scanned_at    INTEGER NOT NULL DEFAULT 0,
+		scan_ms       INTEGER NOT NULL DEFAULT 0,
+		total_bytes   INTEGER NOT NULL DEFAULT 0,
+		total_objects INTEGER NOT NULL DEFAULT 0,
+		truncated     INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE TABLE bucket_folders (
+		bucket_id  INTEGER NOT NULL REFERENCES buckets(id) ON DELETE CASCADE,
+		prefix     TEXT    NOT NULL,
+		parent     TEXT    NOT NULL,
+		bytes      INTEGER NOT NULL,
+		objects    INTEGER NOT NULL,
+		file_bytes INTEGER NOT NULL,
+		files      INTEGER NOT NULL,
+		PRIMARY KEY (bucket_id, prefix)
+	);
+	CREATE INDEX bucket_folders_parent ON bucket_folders (bucket_id, parent, bytes DESC);`,
 }
 
 func (s *Store) migrate() error {
