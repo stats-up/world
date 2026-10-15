@@ -8,10 +8,15 @@
 package web
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -88,6 +93,68 @@ func TestIntegrationConsole(t *testing.T) {
 		t.Error("la página de consola no relaja style-src para xterm.js")
 	}
 	resp.Body.Close()
+
+	// Panel de archivos: listar (busybox stat en alpine) y descargar archivos y carpetas.
+	if out, code, err := dc.ContainerExec(ctx, cid, []string{"sh", "-c",
+		`mkdir -p "/srv/app/sub dir" && printf hola > "/srv/app/it's file.txt" && printf 12345 > "/srv/app/sub dir/b.bin" && touch /srv/app/.env && ln -s "/srv/app/it's file.txt" /srv/app/link`}); err != nil || code != 0 {
+		t.Fatalf("preparando archivos: %v %d %s", err, code, out)
+	}
+	get := func(u string) (*http.Response, string) {
+		req, _ := http.NewRequest("GET", ts.URL+"/sites/"+strconv.FormatInt(siteID, 10)+u, nil)
+		req.AddCookie(cookie)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp, string(b)
+	}
+	_, html := get("/files?path=" + url.QueryEscape("/srv/app/"))
+	for _, want := range []string{"sub dir", "it&#39;s file.txt", ".env", "link"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("listado: falta %q\n%s", want, html)
+		}
+	}
+	if strings.Index(html, "sub dir") > strings.Index(html, ".env") {
+		t.Error("las carpetas van primero")
+	}
+	if _, html := get("/files?path=/no/existe"); !strings.Contains(html, "No se puede abrir /no/existe") {
+		t.Errorf("carpeta inexistente: %s", html)
+	}
+	if _, html := get("/files"); !strings.Contains(html, `data-cd="/"`) { // alpine no define WorkingDir
+		t.Errorf("carpeta inicial: %s", html)
+	}
+	r1, body := get("/files/download?path=" + url.QueryEscape("/srv/app/it's file.txt"))
+	if body != "hola" || !strings.Contains(r1.Header.Get("Content-Disposition"), "attachment") {
+		t.Errorf("descarga: %q %v", body, r1.Header)
+	}
+	if _, body := get("/files/download?path=/srv/app/link"); body != "hola" {
+		t.Errorf("enlace: %q", body)
+	}
+	r2, body := get("/files/download?path=" + url.QueryEscape("/srv/app/sub dir"))
+	if !strings.Contains(r2.Header.Get("Content-Disposition"), "sub dir.tar.gz") {
+		t.Errorf("carpeta: %v", r2.Header)
+	}
+	gz, err := gzip.NewReader(strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := tar.NewReader(gz)
+	var names []string
+	for {
+		h, err := tr.Next()
+		if err != nil {
+			break
+		}
+		names = append(names, h.Name)
+	}
+	if !slices.Contains(names, "sub dir/b.bin") {
+		t.Errorf("tar de la carpeta: %v", names)
+	}
+	if r, _ := get("/files/download?path=/no/existe"); r.StatusCode != http.StatusNotFound {
+		t.Errorf("descarga inexistente: %d", r.StatusCode)
+	}
 
 	dial := func(query string, origin string) (*websocket.Conn, *http.Response, error) {
 		h := http.Header{}

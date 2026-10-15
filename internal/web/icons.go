@@ -43,6 +43,8 @@ var iconPaths = map[string]string{
 	"arrow":    `<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>`,
 	"file":     `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>`,
 	"folder":   `<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>`,
+	"download": `<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>`,
+	"up":       `<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>`,
 }
 
 // icon devuelve el SVG del ícono; con clase extra opcional (ej: {{icon "mail" "lg"}}).

@@ -1,0 +1,25 @@
+{{define "site_files"}}
+<div id="files" class="files-panel">
+  <div class="files-head">
+    <nav class="files-crumbs" aria-label="Ruta">{{range $i, $c := .Crumbs}}{{if $i}}<span class="muted">/</span>{{end}}<button type="button" class="link" hx-get="/sites/{{$.SiteID}}/files?path={{qs $c.Path}}" hx-target="#files" hx-swap="outerHTML">{{if eq $c.Path "/"}}raíz{{else}}{{$c.Name}}{{end}}</button>{{end}}</nav>
+    <div class="files-actions">
+      <button type="button" class="sm ghost" title="Actualizar" aria-label="Actualizar" hx-get="/sites/{{.SiteID}}/files?path={{qs .Path}}" hx-target="#files" hx-swap="outerHTML">{{icon "refresh"}}</button>
+      <button type="button" class="sm ghost" title="Ir a esta carpeta en la consola" aria-label="Ir a esta carpeta en la consola" data-cd="{{.Path}}">{{icon "terminal"}}</button>
+      {{if not .Error}}<a class="button sm ghost" href="/sites/{{.SiteID}}/files/download?path={{.Path}}" title="Descargar la carpeta (.tar.gz)" aria-label="Descargar la carpeta" download>{{icon "download"}}</a>{{end}}
+    </div>
+  </div>
+  {{with .Error}}<p class="small files-error">{{.}}</p>{{end}}
+  <ul class="files-list">
+    {{with .Parent}}<li><button type="button" class="files-item" hx-get="/sites/{{$.SiteID}}/files?path={{qs .}}" hx-target="#files" hx-swap="outerHTML">{{icon "up"}}<span class="files-name">..</span></button></li>{{end}}
+    {{range .Entries}}
+    <li>{{if .Dir}}
+      <button type="button" class="files-item" hx-get="/sites/{{$.SiteID}}/files?path={{qs .Path}}" hx-target="#files" hx-swap="outerHTML" title="{{.Path}}">{{icon "folder"}}<span class="files-name">{{.Name}}</span></button>
+      {{else}}
+      <a class="files-item" href="/sites/{{$.SiteID}}/files/download?path={{.Path}}" download title="Descargar {{.Path}}{{if not .Modified.IsZero}} · modificado {{ago .Modified}}{{end}}">{{icon "file"}}<span class="files-name">{{.Name}}</span><span class="files-size">{{size .Size}}</span></a>
+      {{end}}</li>
+    {{end}}
+  </ul>
+  {{if .Hidden}}<p class="muted small">… y {{.Hidden}} más. Usa la consola para verlas todas.</p>{{end}}
+  {{if and (not .Entries) (not .Error)}}<p class="muted small">Carpeta vacía.</p>{{end}}
+</div>
+{{end}}

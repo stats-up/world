@@ -62,5 +62,14 @@
   window.addEventListener('resize', function () { fit.fit(); });
   reconnect.addEventListener('click', function () { term.reset(); connect(); });
 
+  // Panel de archivos: «ir a esta carpeta» escribe el cd en la shell.
+  document.addEventListener('click', function (ev) {
+    const btn = ev.target.closest('[data-cd]');
+    if (!btn || !ws || ws.readyState !== WebSocket.OPEN) return;
+    const dir = btn.dataset.cd.replace(/'/g, "'\\''"); // comilla simple segura para sh
+    ws.send(encoder.encode("cd '" + dir + "'\r"));
+    term.focus();
+  });
+
   connect();
 })();

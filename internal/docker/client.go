@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -169,8 +171,9 @@ type ContainerInfo struct {
 		} `json:"Health"`
 	} `json:"State"`
 	Config struct {
-		Image  string            `json:"Image"`
-		Labels map[string]string `json:"Labels"`
+		Image      string            `json:"Image"`
+		Labels     map[string]string `json:"Labels"`
+		WorkingDir string            `json:"WorkingDir"`
 	} `json:"Config"`
 	NetworkSettings struct {
 		Networks map[string]struct {
@@ -253,11 +256,16 @@ func (c *Client) ContainerLogs(ctx context.Context, id string, tail int) (string
 // ContainerExec ejecuta cmd dentro del contenedor (como su usuario por defecto) y espera a que termine.
 // Devuelve la salida combinada (stdout+stderr, máx. 1 MB) y el código de salida.
 func (c *Client) ContainerExec(ctx context.Context, id string, cmd []string) (string, int, error) {
+	return c.ContainerExecAs(ctx, id, "", cmd)
+}
+
+// ContainerExecAs es ContainerExec con otro usuario (vacío = el de la imagen).
+func (c *Client) ContainerExecAs(ctx context.Context, id, user string, cmd []string) (string, int, error) {
 	var created struct {
 		ID string `json:"Id"`
 	}
 	err := c.call(ctx, "POST", "/containers/"+id+"/exec", nil, map[string]any{
-		"AttachStdout": true, "AttachStderr": true, "Cmd": cmd,
+		"AttachStdout": true, "AttachStderr": true, "Cmd": cmd, "User": user,
 	}, &created)
 	if err != nil {
 		return "", -1, err
@@ -452,4 +460,39 @@ func (s *Stats) MemUsed() uint64 {
 func (c *Client) ContainerStats(ctx context.Context, id string) (*Stats, error) {
 	var st Stats
 	return &st, c.call(ctx, "GET", "/containers/"+id+"/stats", url.Values{"stream": {"0"}, "one-shot": {"1"}}, nil, &st)
+}
+
+// --- Archivos de un contenedor ---
+
+// PathStat describe una ruta dentro de un contenedor (encabezado X-Docker-Container-Path-Stat).
+type PathStat struct {
+	Name       string      `json:"name"`
+	Size       int64       `json:"size"`
+	Mode       os.FileMode `json:"mode"`
+	Mtime      time.Time   `json:"mtime"`
+	LinkTarget string      `json:"linkTarget"`
+}
+
+// ArchiveStat revisa una ruta del contenedor sin descargarla.
+func (c *Client) ArchiveStat(ctx context.Context, id, path string) (*PathStat, error) {
+	resp, err := c.do(ctx, "HEAD", "/containers/"+id+"/archive", url.Values{"path": {path}}, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp.Body.Close()
+	raw, err := base64.StdEncoding.DecodeString(resp.Header.Get("X-Docker-Container-Path-Stat"))
+	if err != nil {
+		return nil, err
+	}
+	var st PathStat
+	return &st, json.Unmarshal(raw, &st)
+}
+
+// ArchiveGet descarga una ruta del contenedor como tar (un archivo o una carpeta completa).
+func (c *Client) ArchiveGet(ctx context.Context, id, path string) (io.ReadCloser, error) {
+	resp, err := c.do(ctx, "GET", "/containers/"+id+"/archive", url.Values{"path": {path}}, nil)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Body, nil
 }

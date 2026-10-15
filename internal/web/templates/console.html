@@ -16,7 +16,13 @@
   </div>
 </div>
 <p class="muted small">Shell dentro del contenedor activo del sitio{{if .Root}}, <strong>como root</strong>{{else}} (usuario de la imagen, ej: <code>www-data</code>){{end}}.
-  Los cambios en archivos fuera de las carpetas persistentes se pierden en el próximo deploy. Escribe <code>exit</code> para cerrar.</p>
-<div id="terminal" class="console-term"
-     data-ws="/sites/{{.Site.ID}}/console/ws?csrf={{.CSRF}}{{if .Root}}&amp;user=root{{end}}"></div>
+  Los cambios en archivos fuera de las carpetas persistentes se pierden en el próximo deploy. Escribe <code>exit</code> para cerrar.
+  A la izquierda puedes recorrer las carpetas y descargar archivos (o una carpeta completa como .tar.gz).</p>
+<div class="console-layout">
+  <aside class="files-aside" aria-label="Archivos del contenedor">
+    <div id="files" class="files-panel" hx-get="/sites/{{.Site.ID}}/files" hx-trigger="load" hx-swap="outerHTML"><p class="muted small">Cargando archivos…</p></div>
+  </aside>
+  <div id="terminal" class="console-term"
+       data-ws="/sites/{{.Site.ID}}/console/ws?csrf={{.CSRF}}{{if .Root}}&amp;user=root{{end}}"></div>
+</div>
 {{end}}

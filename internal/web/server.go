@@ -132,6 +132,8 @@ var funcs = template.FuncMap{
 		}
 		return strconv.FormatFloat(float64(b)/(1<<10), 'f', 0, 64) + " KB"
 	},
+	// qs codifica un valor para la query de atributos que html/template no trata como URL (hx-get).
+	"qs": func(s string) string { return strings.ReplaceAll(url.QueryEscape(s), "+", "%20") },
 	"gb": func(b int64) string { return strconv.FormatFloat(float64(b)/(1<<30), 'f', 1, 64) + " GB" },
 	"short": func(s string) string {
 		if len(s) > 12 {
@@ -193,6 +195,8 @@ func (s *Server) Handler() http.Handler {
 	priv("GET /sites/{id}/logs", s.siteLogs)
 	priv("GET /sites/{id}/console", s.siteConsole)
 	priv("GET /sites/{id}/console/ws", s.siteConsoleWS)
+	priv("GET /sites/{id}/files", s.siteFiles)
+	priv("GET /sites/{id}/files/download", s.siteFileDownload)
 	priv("GET /deployments/{id}", s.deploymentShow)
 	priv("GET /deployments/{id}/log", s.deploymentLog)
 	priv("GET /settings", s.settingsForm)
