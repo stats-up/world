@@ -113,6 +113,8 @@ func TestClientDomains(t *testing.T) {
 				return method, map[string]any{"ids": []string{"a1", "a2"}}
 			}
 			return method, map[string]any{"ids": []string{}}
+		case "x:Account/get":
+			return method, map[string]any{"list": []map[string]any{{"id": "a1", "usedDiskQuota": 1000}, {"id": "a2", "usedDiskQuota": 500}}}
 		}
 		t.Fatalf("método %s", method)
 		return "", nil
@@ -121,7 +123,7 @@ func TestClientDomains(t *testing.T) {
 	if err != nil || len(ds) != 2 {
 		t.Fatalf("%v %v", ds, err)
 	}
-	if ds[1].Name != "prueba.frikiforja.cl" || !ds[1].Active || ds[1].Accounts != 2 || ds[1].Origin != "frikiforja.cl" {
+	if ds[1].Name != "prueba.frikiforja.cl" || !ds[1].Active || ds[1].Accounts != 2 || ds[1].Used != 1500 || ds[1].Origin != "frikiforja.cl" {
 		t.Errorf("dominio: %+v", ds[1])
 	}
 	if ds[0].Active {

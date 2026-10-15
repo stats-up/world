@@ -60,12 +60,20 @@ func (s *Server) mailIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	host := s.serverHostname()
 	var domains []mail.Domain
+	var used int64
+	accounts, active := 0, 0
 	for _, d := range all {
 		if !mail.IsServerDomain(d.Name, host) {
-			domains = append(domains, d)
+			domains = append(domains, d) // ya vienen por nombre, de la A a la Z
+			used += d.Used
+			accounts += d.Accounts
+			if d.Active {
+				active++
+			}
 		}
 	}
-	s.render(w, r, "mail", data{"Domains": domains, "Hostname": host})
+	s.render(w, r, "mail", data{"Domains": domains, "Hostname": host, "Used": used, "AccountsTotal": accounts,
+		"ActiveCount": active, "MigrationCount": len(domains) - active})
 }
 
 // mailDomainNew muestra el formulario de dominio nuevo (también al volver con un error).

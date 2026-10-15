@@ -337,6 +337,11 @@ pre.log {
 pre.log.short { max-height: 20rem; }
 .probe-btn .loading, .probe-btn.htmx-request .idle { display: none; }
 .probe-btn.htmx-request .loading { display: inline; }
+/* --- Filtros de tablas --- */
+.row.filters { justify-content: flex-start; flex-wrap: wrap; gap: .6rem .75rem; }
+.row.filters select { width: auto; }
+.row.filters > .muted { margin-left: auto; }
+
 /* --- Buckets --- */
 .table.sizes .share { width: 28%; min-width: 6rem; }
 .table.sizes td.share svg.bar { height: 8px; }

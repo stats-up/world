@@ -1,4 +1,5 @@
 {{define "title"}}Correo{{end}}
+{{define "head"}}<script src="/static/sort.js?v={{.Version}}" defer></script>{{end}}
 {{define "content"}}
 <div class="page-head">
   <div>
@@ -18,23 +19,50 @@
 {{else if .Error}}
 <div class="flash error">{{icon "alert"}}<div>{{.Error}}</div></div>
 {{else if .Domains}}
-<div class="tiles">
-  {{range .Domains}}
-  <a class="tile" href="/mail/domains/{{.ID}}">
-    <div class="tile-head">
-      <span class="avatar">{{initial .Name}}</span>
-      <span class="ellipsis"><strong class="ellipsis">{{.Name}}</strong>{{with .Description}}<small class="ellipsis">{{.}}</small>{{end}}</span>
-      {{icon "chevron"}}
-    </div>
-    <div class="tile-meta">
-      {{if .Active}}<span class="badge ok">activo</span>{{else}}<span class="badge warn">migración</span>{{end}}
-      <span>{{icon "inbox"}} {{.Accounts}} buzón{{if ne .Accounts 1}}es{{end}}</span>
-      {{with .Origin}}<span title="Zona DNS en Cloudflare">{{icon "dns"}} {{.}}</span>{{end}}
-    </div>
-  </a>
-  {{end}}
-  <a class="tile add" href="/mail/domains/new">{{icon "plus" "lg"}} Agregar dominio</a>
+<div class="stats">
+  <div class="stat"><span>Dominios</span><strong>{{len .Domains}}</strong><small>{{.ActiveCount}} activos · {{.MigrationCount}} en migración</small></div>
+  <div class="stat"><span>Buzones</span><strong>{{.AccountsTotal}}</strong></div>
+  <div class="stat"><span>Espacio usado</span><strong>{{size .Used}}</strong><small>todos los buzones</small></div>
 </div>
+
+<section class="card flush">
+  <div class="row filters">
+    <label class="search">{{icon "search"}}<input type="search" placeholder="Buscar dominio…" data-filter="#domains" aria-label="Buscar dominio"></label>
+    <select data-filter="#domains" data-filter-key="mode" aria-label="Filtrar por estado">
+      <option value="">Todos los estados</option>
+      <option value="activo">Activos</option>
+      <option value="migracion">En migración</option>
+    </select>
+    <span class="muted small"><span id="domains-count">{{len .Domains}}</span> de {{len .Domains}}</span>
+  </div>
+  <div class="table-wrap">
+  <table class="table sortable" id="domains">
+    <thead><tr>
+      <th data-sort="text" aria-sort="ascending">Dominio</th>
+      <th data-sort="text">Estado</th>
+      <th data-sort="num" class="num">Buzones</th>
+      <th data-sort="num" class="num">Espacio usado</th>
+      <th data-sort="text" class="hide-sm">Zona DNS</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+    {{range .Domains}}
+      <tr data-href="/mail/domains/{{.ID}}" data-mode="{{if .Active}}activo{{else}}migracion{{end}}">
+        <td data-v="{{.Name}}"><div class="cell-main"><span class="avatar sm">{{initial .Name}}</span>
+          <div class="ellipsis"><a href="/mail/domains/{{.ID}}">{{.Name}}</a>{{with .Description}}<small>{{.}}</small>{{end}}</div></div></td>
+        <td>{{if .Active}}<span class="badge ok">activo</span>{{else}}<span class="badge warn">migración</span>{{end}}</td>
+        <td class="num" data-v="{{.Accounts}}">{{.Accounts}}</td>
+        <td class="num" data-v="{{.Used}}"><strong>{{size .Used}}</strong></td>
+        <td class="small muted hide-sm">{{with .Origin}}{{.}}{{else}}{{.Name}}{{end}}</td>
+        <td class="num muted">{{icon "chevron"}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  <p id="domains-empty" class="empty-state small" hidden>Ningún dominio coincide con los filtros.</p>
+</section>
+<p class="muted small table-note">Espacio usado: lo que ocupan los correos de todos los buzones del dominio. Haz clic en un encabezado para ordenar.</p>
 {{else}}
 <div class="card empty-state">
   {{icon "mail"}}

@@ -29,6 +29,7 @@ type Domain struct {
 	Active      bool   // publica el MX: este servidor recibe el correo
 	ZoneFile    string // registros que Stalwart recomienda para el dominio
 	Accounts    int
+	Used        int64 // espacio en disco de todos sus buzones (bytes)
 }
 
 type domainJSON struct {
@@ -66,6 +67,15 @@ func (c *Client) Domains(ctx context.Context) ([]Domain, error) {
 			return nil, err
 		}
 		dom.Accounts = len(ids)
+		if len(ids) > 0 {
+			var accs []accountJSON
+			if err := c.get(ctx, "Account", ids, []string{"usedDiskQuota"}, &accs); err != nil {
+				return nil, err
+			}
+			for _, a := range accs {
+				dom.Used += a.UsedDisk
+			}
+		}
 		out = append(out, dom)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })

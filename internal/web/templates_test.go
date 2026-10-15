@@ -54,7 +54,7 @@ func TestMailPagesRender(t *testing.T) {
 	done := &store.MailImport{ID: 6, AccountID: "a", Host: "38.18.230.11", Port: 993, SrcUser: acc.Email, Status: store.ImportSuccess, Processed: 40, Copied: 40, Total: 40, Bytes: 3 << 20,
 		StartedAt: time.Now().Add(-time.Hour), FinishedAt: time.Now()}
 	pages := map[string]data{
-		"mail":                {"Domains": []mail.Domain{*dom}, "Hostname": "mx.statsup.cl"},
+		"mail":                {"Domains": []mail.Domain{*dom}, "Hostname": "mx.statsup.cl", "Used": int64(3 << 30), "AccountsTotal": 2, "ActiveCount": 0, "MigrationCount": 1},
 		"mail_domain":         {"Domain": dom, "Accounts": []mail.Account{acc}, "Tab": "ajustes", "Hostname": "mx.statsup.cl"},
 		"mail_domain#buzones": {"Domain": dom, "Accounts": []mail.Account{acc}, "Tab": "buzones", "Hostname": "mx.statsup.cl"},
 		"mail_domain#dns":     {"Domain": dom, "Accounts": []mail.Account(nil), "Records": recs, "Pending": 1, "Tab": "dns", "Hostname": "mx.statsup.cl"},
