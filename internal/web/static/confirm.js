@@ -16,6 +16,22 @@
     var button = form.getAttribute('data-confirm-button') || 'Sí, continuar';
     var submitter = e.submitter;
     var go = function () {
+      if (!form.isConnected) {
+        // htmx reemplazó el formulario mientras se confirmaba (secciones que se refrescan solas):
+        // se envía una copia, que ya no vuelve a pedir confirmación.
+        var copy = form.cloneNode(true);
+        if (submitter && submitter.name) {
+          var extra = document.createElement('input');
+          extra.type = 'hidden';
+          extra.name = submitter.name;
+          extra.value = submitter.value;
+          copy.appendChild(extra);
+        }
+        copy.hidden = true;
+        document.body.appendChild(copy);
+        copy.submit();
+        return;
+      }
       form.dataset.confirmed = '1';
       if (form.requestSubmit) form.requestSubmit(submitter); else form.submit();
     };

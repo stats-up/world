@@ -32,6 +32,9 @@ const (
 	migLabel    = "world.managed=dbmigrate"
 	migMemory   = 512 << 20
 	pollEvery   = 3 * time.Second
+	// Sin datos durante este tiempo, la copia se da por colgada (ej: MainDB se reinició
+	// y la conexión quedó abierta sin nadie al otro lado).
+	stallLimit = 30 * time.Minute
 )
 
 var ErrRunning = errors.New("ya hay una migración en curso hacia esa base")
@@ -272,6 +275,18 @@ func (m *Migrator) follow(ctx context.Context, id int64) {
 				rx += int64(n.RxBytes)
 			}
 			tracker.addRx(time.Now(), rx)
+		}
+		if l := tracker.get(); l.Idle >= stallLimit {
+			msg := fmt.Sprintf("La copia no recibió datos durante %s y se detuvo. Suele pasar si MainDB se reinició (por ejemplo, por falta de memoria con filas muy grandes): revisa su log, borra la base a medias y migra de nuevo.", stallLimit)
+			if l.DBState != "" {
+				msg += fmt.Sprintf(" MainDB estaba en «%s» hace %d s.", l.DBState, l.DBTime)
+			}
+			m.st.FinishDBMigration(id, store.DBMigFailed, msg)
+			stopCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			m.dc.ContainerStop(stopCtx, name, 5*time.Second)
+			m.dc.ContainerRemove(stopCtx, name)
+			cancel()
+			return
 		}
 		if tick%5 == 0 { // cada ~15 s: filas en MainDB y estado del servidor
 			table := CurrentTable(m.Log(id))
