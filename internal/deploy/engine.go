@@ -213,7 +213,7 @@ func containerConfig(site *store.Site, image string, env []string, deployID int6
 			Memory:        int64(site.MemoryMB) << 20,
 			NanoCPUs:      int64(site.CPUs * 1e9),
 		},
-		NetworkingConfig: &docker.NetworkingConfig{EndpointsConfig: map[string]struct{}{proxy.Network: {}}},
+		NetworkingConfig: &docker.NetworkingConfig{EndpointsConfig: map[string]docker.EndpointSettings{proxy.Network: {}}},
 	}
 	return cfg
 }

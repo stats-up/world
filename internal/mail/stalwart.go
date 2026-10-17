@@ -118,7 +118,7 @@ func (m *Manager) Ensure(ctx context.Context, s Settings) error {
 	}
 
 	env := s.env()
-	sum := sha256.Sum256([]byte(Image + "\n" + dataStoreConfig + strings.Join(env, "\n")))
+	sum := sha256.Sum256([]byte(Image + "\n" + dataStoreConfig + strings.Join(env, "\n") + "\nalias:" + s.Hostname))
 	hash := hex.EncodeToString(sum[:8])
 
 	info, err := m.dc.ContainerInspect(ctx, ContainerName)
@@ -166,7 +166,11 @@ func (m *Manager) Ensure(ctx context.Context, s Settings) error {
 		},
 		// La red world es solo IPv4: el correo sale siempre por la IPv4, que es la que tiene PTR (mx.statsup.cl).
 		// Si algún día se activa IPv6 en Docker, configurar antes el PTR de la IPv6 o Gmail rechazará los envíos.
-		NetworkingConfig: &docker.NetworkingConfig{EndpointsConfig: map[string]struct{}{proxy.Network: {}}},
+		// Con el alias, los sitios llegan a mx.statsup.cl por la red interna: el certificado calza y Stalwart
+		// ve la IP de cada contenedor. Por la IP pública volverían como 54.20.26.50 (la del propio servidor),
+		// y un bloqueo automático de esa IP dejaría a todos los sitios sin poder enviar.
+		NetworkingConfig: &docker.NetworkingConfig{EndpointsConfig: map[string]docker.EndpointSettings{
+			proxy.Network: {Aliases: []string{s.Hostname}}}},
 	})
 	if err != nil {
 		return fmt.Errorf("creando stalwart: %w", err)

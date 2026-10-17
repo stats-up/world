@@ -113,7 +113,7 @@ func (m *Manager) Ensure(ctx context.Context, acmeEmail, panelDomain string) err
 			// Para llegar al panel, que corre en el host (fuera de Docker).
 			ExtraHosts: []string{"host.docker.internal:host-gateway"},
 		},
-		NetworkingConfig: &docker.NetworkingConfig{EndpointsConfig: map[string]struct{}{Network: {}}},
+		NetworkingConfig: &docker.NetworkingConfig{EndpointsConfig: map[string]docker.EndpointSettings{Network: {}}},
 	})
 	if err != nil {
 		return fmt.Errorf("creando traefik: %w", err)

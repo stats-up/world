@@ -132,7 +132,7 @@ func (im *Importer) Start(ctx context.Context, req ImportRequest) (int64, error)
 			Memory:   importMemory,
 			NanoCPUs: 1e9, // 1 CPU: que no le quite aire a Stalwart
 		},
-		NetworkingConfig: &docker.NetworkingConfig{EndpointsConfig: map[string]struct{}{proxy.Network: {}}},
+		NetworkingConfig: &docker.NetworkingConfig{EndpointsConfig: map[string]docker.EndpointSettings{proxy.Network: {}}},
 	})
 	if err != nil {
 		return fail(fmt.Errorf("creando el contenedor de imapsync: %w", err))

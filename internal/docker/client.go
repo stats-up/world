@@ -150,7 +150,13 @@ type RestartPolicy struct {
 }
 
 type NetworkingConfig struct {
-	EndpointsConfig map[string]struct{} `json:"EndpointsConfig"`
+	EndpointsConfig map[string]EndpointSettings `json:"EndpointsConfig"`
+}
+
+// EndpointSettings: la conexión del contenedor a una red. Aliases son nombres extra con los que
+// los demás contenedores de esa red lo encuentran (el DNS interno de Docker los resuelve primero).
+type EndpointSettings struct {
+	Aliases []string `json:"Aliases,omitempty"`
 }
 
 type ContainerInfo struct {
