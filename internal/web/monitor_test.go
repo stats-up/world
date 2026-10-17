@@ -25,16 +25,20 @@ func TestMonitorPagesRender(t *testing.T) {
 	c := chart{Title: "RAM", From: now - 86400, To: now, Res: 300, Limit: 512 << 20, Format: fmtBytes, Markers: []int64{now - 3500},
 		Series: []chartSeries{{Name: "RAM usada", Class: "s1", Pts: pts}}}
 	site := &store.Site{ID: 3, Name: "tienda", Kind: store.KindPHP, PersistPaths: []string{"/var/www/html/storage"}}
+	webmail := &store.Site{ID: 4, Name: "webmail", Kind: store.KindDockerfile, CronCommand: "php artisan schedule:run",
+		LastCronAt: time.Now(), LastCronExit: 127, LastCronOutput: "sh: php: not found"}
 	pages := map[string]data{
 		"dashboard": {"Sites": []*store.Site{site}, "Mon": mon, "Docker": nil, "DockerError": "x"},
 		"monitor":   {"Mon": mon, "Range": siteRanges[0], "Ranges": siteRanges, "Charts": []chart{c}},
 		"site": {"Site": site, "Metrics": siteMetrics{Range: siteRanges[1], Ranges: siteRanges, Now: *row, HasNow: true,
 			Charts: []chart{c}, OOMEvents: 2}, "Deployments": []*store.Deployment{{ID: 9, Status: store.DeploySuccess, Source: store.SourceRename}}},
 	}
+	pages["site#cron127"] = data{"Site": webmail, "Metrics": siteMetrics{Range: siteRanges[0], Ranges: siteRanges, Empty: true}}
 	for name, d := range pages {
+		page, _, _ := strings.Cut(name, "#")
 		d["CSRF"] = "tok"
 		var b strings.Builder
-		if err := s.pages[name].ExecuteTemplate(&b, "layout", d); err != nil {
+		if err := s.pages[page].ExecuteTemplate(&b, "layout", d); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 		out := b.String()
@@ -46,6 +50,7 @@ func TestMonitorPagesRender(t *testing.T) {
 			"monitor":   {`class="chart"`, `href="/sites/3"`, "servicio", `class="limit"`, `class="marker"`},
 			"site":      {`class="chart"`, "12 %", "512 MB", "terminó 2 proceso", `class="active"`,
 				`action="/sites/3/rename"`, "¿Renombrar el sitio tienda?", "<code>/var/www/html/storage</code>", "renombrar</td>"},
+			"site#cron127": {"El comando no existe dentro del contenedor (código 127)", `href="/sites/4/edit"`},
 		}[name] {
 			if !strings.Contains(out, want) {
 				t.Errorf("%s: falta %q", name, want)

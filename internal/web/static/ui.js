@@ -65,3 +65,15 @@ document.addEventListener("toggle", (ev) => {
   const pre = ev.target.open && ev.target.querySelector?.("pre[data-follow]");
   if (pre) pre.scrollTop = pre.scrollHeight;
 }, true);
+
+// Formulario de sitio: al cambiar a un tipo que no es PHP/Laravel, se quitan los valores por
+// defecto de Laravel (cron con php artisan y carpeta storage), que en esos contenedores no existen.
+document.addEventListener("change", (e) => {
+  const kind = e.target;
+  if (!(kind instanceof HTMLSelectElement) || kind.name !== "kind" || kind.value === "php") return;
+  const form = kind.form;
+  const cron = form && form.elements.namedItem("cron_command");
+  const persist = form && form.elements.namedItem("persist_paths");
+  if (cron && cron.value.trim() === "php artisan schedule:run") cron.value = "";
+  if (persist && persist.value.trim() === "/var/www/html/storage") persist.value = "";
+});

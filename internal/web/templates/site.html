@@ -33,6 +33,7 @@
         {{else}}{{if eq .Site.LastCronExit 0}}<span class="badge ok">OK</span>{{else}}<span class="badge err">código {{.Site.LastCronExit}}</span>{{end}}
           <span class="muted small">{{ago .Site.LastCronAt}} · {{.Site.LastCronMS}} ms</span>
           {{with .Site.LastCronOutput}}<details><summary class="small">Salida de la última ejecución</summary><pre class="log">{{.}}</pre></details>{{end}}
+          {{if eq .Site.LastCronExit 127}}<div class="flash error small">El comando no existe dentro del contenedor (código 127).{{if ne .Site.Kind "php"}} Este sitio no es PHP/Laravel: si no necesita cron, deja el comando vacío en <a href="/sites/{{.Site.ID}}/edit">Editar</a>.{{end}}</div>{{end}}
         {{end}}{{else}}<span class="muted">sin cron</span>{{end}}</dd>
       <dt>Deploy automático</dt><dd>{{if .Site.AutoDeploy}}<span class="badge ok">activo</span>
         {{if not .Site.LastCheckAt.IsZero}}<span class="muted small">revisado {{ago .Site.LastCheckAt}}{{with .Site.LastRemoteSHA}} · último commit <code>{{short .}}</code>{{end}}</span>{{else}}<span class="muted small">esperando el primer chequeo</span>{{end}}
