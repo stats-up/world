@@ -4,6 +4,7 @@
 <div class="page-head"><div class="page-title"><span class="avatar">{{icon "database"}}</span><div>
   <h1>{{.Inst.Name}}</h1>
   <p class="sub"><code>{{.Inst.User}}@{{.Inst.Host}}:{{.Inst.Port}}</code>{{with .Inst.Summary}} · {{.Version}}{{end}}</p></div></div></div>
+{{template "db_inst_tabs" .}}
 
 {{with .Inst.Err}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
 {{with .Inst.Summary}}

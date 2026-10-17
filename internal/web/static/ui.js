@@ -77,3 +77,16 @@ document.addEventListener("change", (e) => {
   if (cron && cron.value.trim() === "php artisan schedule:run") cron.value = "";
   if (persist && persist.value.trim() === "/var/www/html/storage") persist.value = "";
 });
+
+// Copiar al portapapeles: <button data-copy="#id">.
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-copy]");
+  if (!btn) return;
+  const el = document.querySelector(btn.dataset.copy);
+  if (!el || !navigator.clipboard) return;
+  navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+    const prev = btn.textContent;
+    btn.textContent = "Copiado ✓";
+    setTimeout(() => { btn.textContent = prev; }, 1500);
+  });
+});

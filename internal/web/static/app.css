@@ -472,3 +472,8 @@ details.card[open] > summary { margin-bottom: .75rem; }
 .problem .badge { flex-shrink: 0; margin-top: .1rem; }
 .problem .button { flex-shrink: 0; }
 .problems.card { border-color: color-mix(in srgb, var(--err) 30%, var(--border)); }
+
+/* Usuarios de bases de datos */
+.db-user h2 { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.profile-help { margin: 0; padding-left: 1.1rem; }
+code.secret { font-size: 1.05rem; padding: .4rem .6rem; user-select: all; overflow-wrap: anywhere; }

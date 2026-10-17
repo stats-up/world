@@ -1,0 +1,95 @@
+{{define "title"}}Usuarios · {{.Inst.Name}}{{end}}
+{{define "content"}}
+<nav class="crumbs"><a href="/databases">Bases de datos</a>{{icon "chevron"}}<a href="/databases/x/{{.Inst.Key}}">{{.Inst.Name}}</a>{{icon "chevron"}}<span>Usuarios</span></nav>
+<div class="page-head"><div class="page-title"><span class="avatar">{{icon "database"}}</span><div>
+  <h1>{{.Inst.Name}}</h1>
+  <p class="sub"><code>{{.Inst.User}}@{{.Inst.Host}}:{{.Inst.Port}}</code></p></div></div></div>
+{{template "db_inst_tabs" .}}
+
+<p class="muted small">Lo recomendado: un usuario por aplicación con acceso solo a su base, y <code>{{.Inst.User}}</code> solo para administrar (nunca en el <code>.env</code> de un sitio). Así, si una aplicación falla o queda expuesta, solo puede tocar su propia base.</p>
+
+{{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+
+{{range .Users}}{{$u := .}}
+<section class="card stack db-user" id="u-{{.User}}">
+  <div class="row">
+    <h2>{{icon "user"}} <code>{{.User}}</code><span class="muted small">@{{.Host}}</span>
+      {{if .Self}}<span class="badge accent">administrador · esta conexión</span>{{end}}
+      {{if and .Admin (not .Self)}}<span class="badge warn" title="{{join .Global ", "}}">permisos sobre todas las bases</span>{{end}}
+      {{if .Locked}}<span class="badge err">bloqueado</span>{{end}}</h2>
+    {{if .Editable}}
+    <div class="actions">
+      <form method="post" action="/databases/users/{{$.Inst.Key}}/password" class="inline"
+            data-confirm="¿Generar una contraseña nueva para {{.User}}?"
+            data-confirm-text="La contraseña actual deja de funcionar de inmediato: las aplicaciones que usan {{.User}} no podrán conectarse hasta que pongas la nueva en su .env y hagas deploy."
+            data-confirm-button="Sí, cambiar la contraseña">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="user" value="{{.User}}"><input type="hidden" name="host" value="{{.Host}}">
+        <button type="submit" class="sm">{{icon "key"}} Cambiar contraseña</button>
+      </form>
+      <form method="post" action="/databases/users/{{$.Inst.Key}}/delete" class="inline"
+            data-confirm="¿Eliminar el usuario {{.User}}@{{.Host}}?"
+            data-confirm-text="Se elimina la cuenta y sus permisos{{with .Grants}} sobre {{range $i, $g := .}}{{if $i}}, {{end}}{{$g.Name}}{{end}}{{end}}. Las bases y sus datos no se tocan, pero las aplicaciones que la usan dejan de conectarse. No se puede deshacer."
+            data-confirm-button="Sí, eliminar el usuario">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="user" value="{{.User}}"><input type="hidden" name="host" value="{{.Host}}">
+        <button type="submit" class="sm ghost danger" title="Eliminar usuario">{{icon "trash"}}</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+
+  {{if .Grants}}
+  <ul class="plain-list">
+    {{range .Grants}}
+    <li class="row"><div><code>{{.Name}}</code>{{if .Pattern}} <span class="badge" title="El nombre tiene comodines (% o _): aplica a todas las bases que calcen">patrón</span>{{end}}
+      · <strong>{{.ProfileLabel}}</strong><br><span class="muted small">{{join .Privs ", "}}</span></div>
+      {{if $u.Editable}}
+      <form method="post" action="/databases/users/{{$.Inst.Key}}/revoke" class="inline"
+            data-confirm="¿Quitar el acceso de {{$u.User}} a {{.Name}}?"
+            data-confirm-text="{{$u.User}} deja de poder leer y escribir en {{.Name}}. Si una aplicación lo usa con esa base, deja de funcionar. Los datos no se tocan."
+            data-confirm-button="Sí, quitar el acceso">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="user" value="{{$u.User}}"><input type="hidden" name="host" value="{{$u.Host}}"><input type="hidden" name="db" value="{{.DB}}">
+        <button type="submit" class="sm ghost">Quitar acceso</button>
+      </form>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+  {{else if .Admin}}<p class="muted small">Accede a todas las bases con sus permisos globales.</p>
+  {{else}}<p class="muted small">Sin acceso a ninguna base.</p>{{end}}
+
+  {{if and .Editable $.DBs}}
+  <form method="post" action="/databases/users/{{$.Inst.Key}}/grant" class="inline-form">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="user" value="{{.User}}"><input type="hidden" name="host" value="{{.Host}}">
+    <select name="db" aria-label="Base">{{range $.DBs}}<option>{{.}}</option>{{end}}</select>
+    <select name="profile" aria-label="Perfil">{{range $.Profiles}}<option value="{{.Key}}">{{.Label}}</option>{{end}}</select>
+    <button type="submit" class="sm">Dar acceso</button>
+  </form>
+  <p class="muted small">Si ya tiene acceso a esa base, se reemplaza por el perfil elegido.</p>
+  {{end}}
+</section>
+{{end}}
+
+<section class="card stack" id="nuevo">
+  <h2>{{icon "plus"}} Nuevo usuario</h2>
+  {{if .DBs}}
+  <form method="post" action="/databases/users/{{.Inst.Key}}" class="stack">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <div class="cols">
+      <label>Usuario<input name="user" required maxlength="32" pattern="[a-z0-9_]+" title="Minúsculas, números y guion bajo" placeholder="app_tienda" autocomplete="off" spellcheck="false"></label>
+      <label>Base<select name="db">{{range .DBs}}<option{{if eq . $.SelDB}} selected{{end}}>{{.}}</option>{{end}}</select></label>
+      <label>Perfil<select name="profile">{{range .Profiles}}<option value="{{.Key}}">{{.Label}}</option>{{end}}</select></label>
+    </div>
+    <ul class="muted small profile-help">{{range .Profiles}}<li><strong>{{.Label}}:</strong> {{.Help}}</li>{{end}}</ul>
+    <p class="muted small">world genera una contraseña segura y te la muestra una sola vez para copiarla al <code>.env</code>; no la guarda. El usuario puede conectarse desde cualquier dirección que llegue al servidor (<code>%</code>).</p>
+    <div class="actions"><button type="submit">{{icon "plus"}} Crear usuario</button></div>
+  </form>
+  {{else}}<p class="muted">Primero crea una base en la pestaña Bases.</p>{{end}}
+</section>
+
+{{with .SystemUsers}}
+<details class="card"><summary><h2 class="inline">Cuentas del sistema <span class="muted small">{{len .}}</span></h2></summary>
+  <p class="muted small">Cuentas internas del motor o del proveedor (Lightsail/RDS). world no las modifica.</p>
+  <ul class="plain-list">{{range .}}<li><code>{{.User}}</code><span class="muted small">@{{.Host}}</span>{{if .Locked}} <span class="badge">bloqueada</span>{{end}}</li>{{end}}</ul>
+</details>
+{{end}}
+{{end}}

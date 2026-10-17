@@ -3,7 +3,8 @@
 <nav class="crumbs"><a href="/databases">Bases de datos</a>{{icon "chevron"}}<a href="/databases/x/{{.Inst.Key}}">{{.Inst.Name}}</a>{{icon "chevron"}}<span>{{.DB}}</span></nav>
 <div class="page-head"><div class="page-title"><span class="avatar">{{icon "database"}}</span><div>
   <h1><code>{{.DB}}</code></h1>
-  <p class="sub">{{.Count}} tablas · {{.Views}} vistas · ≈ {{num .Rows}} registros · {{size .Total}}</p></div></div></div>
+  <p class="sub">{{.Count}} tablas · {{.Views}} vistas · ≈ {{num .Rows}} registros · {{size .Total}}</p></div></div>
+  <div class="actions"><a class="button" href="/databases/users/{{.Inst.Key}}?db={{.DB}}#nuevo">{{icon "user"}} Crear usuario para esta base</a></div></div>
 
 {{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
 {{if .Tables}}
