@@ -376,6 +376,35 @@ func (s *Server) siteDelete(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/")
 }
 
+// siteRename cambia el nombre del sitio con un deploy (confirmado antes con Sweet Alert).
+func (s *Server) siteRename(w http.ResponseWriter, r *http.Request) {
+	site, ok := s.loadSite(w, r)
+	if !ok {
+		return
+	}
+	back := fmt.Sprintf("/sites/%d", site.ID)
+	name := strings.ToLower(strings.TrimSpace(r.FormValue("name")))
+	switch taken, err := s.st.SiteNameTaken(name); {
+	case !nameRe.MatchString(name):
+		s.setFlash(w, "error", "Nombre inválido: usa minúsculas, números y guiones (máx. 32).")
+	case name == site.Name:
+		s.setFlash(w, "error", "El nombre nuevo es igual al actual.")
+	case err != nil:
+		s.setFlash(w, "error", err.Error())
+	case taken:
+		s.setFlash(w, "error", "Ya existe un sitio llamado "+name+".")
+	default:
+		id, err := s.engine.Rename(site.ID, name)
+		if err != nil {
+			s.setFlash(w, "error", err.Error())
+			break
+		}
+		redirect(w, r, fmt.Sprintf("/deployments/%d", id))
+		return
+	}
+	redirect(w, r, back)
+}
+
 func (s *Server) siteLogs(w http.ResponseWriter, r *http.Request) {
 	site, ok := s.loadSite(w, r)
 	if !ok {

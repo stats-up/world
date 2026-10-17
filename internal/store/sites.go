@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"strings"
 	"time"
 )
@@ -154,7 +155,7 @@ func (s *Store) CreateSite(site *Site) (int64, error) {
 	return res.LastInsertId()
 }
 
-// UpdateSite guarda los campos editables (el nombre y la deploy key no cambian).
+// UpdateSite guarda los campos editables (el nombre cambia con RenameSite; la deploy key no cambia).
 func (s *Store) UpdateSite(site *Site) error {
 	_, err := s.db.Exec(`UPDATE sites SET repo_url = ?, branch = ?, kind = ?, php_version = ?, php_extensions = ?,
 		build_assets = ?, autorun = ?, port = ?, domains = ?, env_enc = ?, memory_mb = ?, cpus = ?, auto_deploy = ?,
@@ -165,6 +166,40 @@ func (s *Store) UpdateSite(site *Site) error {
 		site.EnvEnc, site.MemoryMB, site.CPUs, boolInt(site.AutoDeploy),
 		strings.Join(site.PersistPaths, "\n"), boolInt(site.RedirectAliases), site.CronCommand, site.ID)
 	return err
+}
+
+// SiteNameTaken indica si ya hay un sitio con ese nombre.
+func (s *Store) SiteNameTaken(name string) (bool, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT count(*) FROM sites WHERE name = ?`, name).Scan(&n)
+	return n > 0, err
+}
+
+// RenameSite cambia el nombre del sitio y le pasa su historial de métricas (guardado por nombre).
+func (s *Store) RenameSite(id int64, newName string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var old string
+	if err := tx.QueryRow(`SELECT name FROM sites WHERE id = ?`, id).Scan(&old); err != nil {
+		return notFound(err)
+	}
+	if _, err := tx.Exec(`UPDATE sites SET name = ? WHERE id = ?`, newName, id); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE") {
+			return fmt.Errorf("ya existe un sitio llamado %s", newName)
+		}
+		return err
+	}
+	// Por si el nombre nuevo tuvo métricas antes (un sitio eliminado con ese nombre).
+	if _, err := tx.Exec(`DELETE FROM metrics_ctr WHERE key = ?`, newName); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE metrics_ctr SET key = ? WHERE key = ?`, newName, old); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) SetSiteImage(id int64, image string) error {

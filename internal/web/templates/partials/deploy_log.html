@@ -2,7 +2,7 @@
 <div id="deploy-log"{{if .Deployment.Running}} hx-get="/deployments/{{.Deployment.ID}}/log" hx-trigger="every 2s" hx-swap="outerHTML"{{end}}>
   <div class="row">
     <div>{{template "deploy_status" .Deployment.Status}} <span class="muted">{{.Deployment.Duration}}</span>
-      {{with .Deployment.CommitSHA}}<span class="muted">· commit <code>{{short .}}</code></span>{{end}}{{if eq .Deployment.Source "auto"}} <span class="muted">· automático</span>{{end}}</div>
+      {{with .Deployment.CommitSHA}}<span class="muted">· commit <code>{{short .}}</code></span>{{end}}{{if eq .Deployment.Source "auto"}} <span class="muted">· automático</span>{{else if eq .Deployment.Source "rename"}} <span class="muted">· renombrar</span>{{end}}</div>
     {{if not .Deployment.Running}}<a class="button sm" href="/sites/{{.Site.ID}}">{{icon "back"}} Volver al sitio</a>{{end}}
   </div>
   {{with .Deployment.Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}

@@ -363,6 +363,15 @@ func demux(data []byte) string {
 	return out.String()
 }
 
+// VolumeExists indica si existe un volumen.
+func (c *Client) VolumeExists(ctx context.Context, name string) (bool, error) {
+	err := c.call(ctx, "GET", "/volumes/"+name, nil, nil, nil)
+	if IsNotFound(err) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 // VolumeRemove elimina un volumen (no falla si no existe).
 func (c *Client) VolumeRemove(ctx context.Context, name string) error {
 	err := c.call(ctx, "DELETE", "/volumes/"+name, nil, nil, nil)

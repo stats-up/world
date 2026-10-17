@@ -51,6 +51,15 @@ func (e *Engine) LogPath(deployID int64) string {
 
 // Start lanza un deploy en segundo plano y devuelve su id. source: store.SourceManual o store.SourceAuto.
 func (e *Engine) Start(siteID int64, source string) (int64, error) {
+	return e.start(siteID, source, "")
+}
+
+// Rename lanza un deploy que además cambia el nombre del sitio (ver rename.go).
+func (e *Engine) Rename(siteID int64, newName string) (int64, error) {
+	return e.start(siteID, store.SourceRename, newName)
+}
+
+func (e *Engine) start(siteID int64, source, rename string) (int64, error) {
 	e.mu.Lock()
 	if e.busy[siteID] {
 		e.mu.Unlock()
@@ -64,7 +73,7 @@ func (e *Engine) Start(siteID int64, source string) (int64, error) {
 		e.release(siteID)
 		return 0, err
 	}
-	go e.run(id, siteID)
+	go e.run(id, siteID, rename)
 	return id, nil
 }
 
@@ -74,7 +83,7 @@ func (e *Engine) release(siteID int64) {
 	e.mu.Unlock()
 }
 
-func (e *Engine) run(deployID, siteID int64) {
+func (e *Engine) run(deployID, siteID int64, rename string) {
 	defer e.release(siteID)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
@@ -92,7 +101,7 @@ func (e *Engine) run(deployID, siteID int64) {
 	lg := &logger{w: f}
 
 	start := time.Now()
-	sha, err := e.deploy(ctx, lg, deployID, siteID)
+	sha, err := e.deploy(ctx, lg, deployID, siteID, rename)
 	if err != nil {
 		lg.Printf("\n✗ Deploy fallido: %v", err)
 		e.st.FinishDeployment(deployID, store.DeployFailed, sha, err.Error())
@@ -102,10 +111,20 @@ func (e *Engine) run(deployID, siteID int64) {
 	e.st.FinishDeployment(deployID, store.DeploySuccess, sha, "")
 }
 
-func (e *Engine) deploy(ctx context.Context, lg *logger, deployID, siteID int64) (string, error) {
+func (e *Engine) deploy(ctx context.Context, lg *logger, deployID, siteID int64, rename string) (string, error) {
 	site, err := e.st.Site(siteID)
 	if err != nil {
 		return "", err
+	}
+	// Al renombrar, la imagen, el contenedor, sus labels y los volúmenes se crean con el nombre nuevo;
+	// en la base de world el nombre cambia recién cuando el contenedor nuevo quedó funcionando.
+	oldName := site.Name
+	if rename != "" {
+		lg.Step(fmt.Sprintf("Renombrando %s → %s", oldName, rename))
+		if err := e.renameCheck(ctx, site, rename); err != nil {
+			return "", err
+		}
+		site.Name = rename
 	}
 
 	// 1. Clonar
@@ -148,14 +167,22 @@ func (e *Engine) deploy(ctx context.Context, lg *logger, deployID, siteID int64)
 	if err != nil {
 		return sha, err
 	}
+	undo := func() {}
+	if rename != "" {
+		if undo, err = e.renameSwitch(ctx, lg, site, oldName); err != nil {
+			return sha, err
+		}
+	}
 	lg.Step("Iniciando contenedor")
 	name := fmt.Sprintf("world-%s-%d", site.Name, deployID)
 	id, err := e.dc.ContainerCreate(ctx, name, containerConfig(site, image, env, deployID))
 	if err != nil {
+		undo()
 		return sha, err
 	}
 	if err := e.dc.ContainerStart(ctx, id); err != nil {
 		e.dc.ContainerRemove(ctx, id)
+		undo()
 		return sha, err
 	}
 	if err := e.waitHealthy(ctx, lg, id); err != nil {
@@ -163,7 +190,17 @@ func (e *Engine) deploy(ctx context.Context, lg *logger, deployID, siteID int64)
 			lg.Printf("\n--- Últimas líneas del contenedor ---\n%s", logs)
 		}
 		e.dc.ContainerRemove(ctx, id)
+		undo()
 		return sha, err
+	}
+	if rename != "" {
+		if err := e.st.RenameSite(site.ID, rename); err != nil {
+			e.dc.ContainerStop(ctx, id, 15*time.Second)
+			e.dc.ContainerRemove(ctx, id)
+			undo()
+			return sha, err
+		}
+		lg.Printf("Nombre cambiado en world: %s → %s", oldName, rename)
 	}
 
 	// 4. Retirar la versión anterior
@@ -187,6 +224,9 @@ func (e *Engine) deploy(ctx context.Context, lg *logger, deployID, siteID int64)
 		return sha, err
 	}
 	e.pruneImages(ctx, lg, site.Name)
+	if rename != "" {
+		e.renameCleanup(ctx, lg, site, oldName)
+	}
 	return sha, nil
 }
 

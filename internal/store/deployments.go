@@ -9,6 +9,7 @@ import (
 const (
 	SourceManual = "manual"
 	SourceAuto   = "auto"
+	SourceRename = "rename" // deploy que además cambia el nombre del sitio
 )
 
 const (
@@ -23,7 +24,7 @@ type Deployment struct {
 	Status     string
 	CommitSHA  string
 	Error      string
-	Source     string // manual | auto
+	Source     string // manual | auto | rename
 	StartedAt  time.Time
 	FinishedAt time.Time // cero mientras corre
 }

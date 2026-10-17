@@ -106,7 +106,7 @@
         <td><a href="/deployments/{{.ID}}">#{{.ID}}</a></td>
         <td>{{template "deploy_status" .Status}}</td>
         <td>{{with .CommitSHA}}<code>{{short .}}</code>{{else}}<span class="muted">—</span>{{end}}</td>
-        <td class="hide-sm">{{if eq .Source "auto"}}automático{{else}}manual{{end}}</td>
+        <td class="hide-sm">{{if eq .Source "auto"}}automático{{else if eq .Source "rename"}}renombrar{{else}}manual{{end}}</td>
         <td class="small">{{ago .StartedAt}}</td>
         <td class="small hide-sm">{{.Duration}}</td>
       </tr>
@@ -117,6 +117,19 @@
   {{else}}
   <p class="muted">Aún no hay deploys. Presiona <strong>Deploy</strong> para publicar el sitio.</p>
   {{end}}
+</section>
+
+<section class="card">
+  <h2>{{icon "edit"}} Renombrar sitio</h2>
+  <p class="muted small">Cambia el nombre que el sitio tiene en world (no sus dominios). Se hace con un deploy: la imagen se construye mientras el sitio sigue atendiendo y, al cambiar, se detiene unos segundos para copiar sus carpetas persistentes{{with .Site.PersistPaths}} ({{range $i, $p := .}}{{if $i}}, {{end}}<code>{{$p}}</code>{{end}}){{end}} con el nombre nuevo. Se mantienen los dominios, las variables, el cron, la deploy key y el historial. Si algo falla, vuelve a levantarse con el nombre actual.</p>
+  <form method="post" action="/sites/{{.Site.ID}}/rename" class="inline-form"
+        data-confirm="¿Renombrar el sitio {{.Site.Name}}?"
+        data-confirm-text="Se construye una imagen con el nombre nuevo y el sitio queda sin atender unos segundos mientras se copian sus datos y arranca el contenedor nuevo. Al terminar se eliminan el contenedor, las imágenes y los volúmenes con el nombre {{.Site.Name}} (sus datos ya quedaron copiados)."
+        data-confirm-button="Sí, renombrar">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input name="name" placeholder="Nombre nuevo" required autocomplete="off" spellcheck="false" pattern="[a-z0-9]([a-z0-9\-]{0,30}[a-z0-9])?" title="Minúsculas, números y guiones (máx. 32)">
+    <button type="submit">Renombrar</button>
+  </form>
 </section>
 
 <section class="card danger">

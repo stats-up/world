@@ -24,12 +24,12 @@ func TestMonitorPagesRender(t *testing.T) {
 		Sites:    map[string]*ctrRow{"tienda": row}}
 	c := chart{Title: "RAM", From: now - 86400, To: now, Res: 300, Limit: 512 << 20, Format: fmtBytes, Markers: []int64{now - 3500},
 		Series: []chartSeries{{Name: "RAM usada", Class: "s1", Pts: pts}}}
-	site := &store.Site{ID: 3, Name: "tienda", Kind: store.KindPHP}
+	site := &store.Site{ID: 3, Name: "tienda", Kind: store.KindPHP, PersistPaths: []string{"/var/www/html/storage"}}
 	pages := map[string]data{
 		"dashboard": {"Sites": []*store.Site{site}, "Mon": mon, "Docker": nil, "DockerError": "x"},
 		"monitor":   {"Mon": mon, "Range": siteRanges[0], "Ranges": siteRanges, "Charts": []chart{c}},
 		"site": {"Site": site, "Metrics": siteMetrics{Range: siteRanges[1], Ranges: siteRanges, Now: *row, HasNow: true,
-			Charts: []chart{c}, OOMEvents: 2}},
+			Charts: []chart{c}, OOMEvents: 2}, "Deployments": []*store.Deployment{{ID: 9, Status: store.DeploySuccess, Source: store.SourceRename}}},
 	}
 	for name, d := range pages {
 		d["CSRF"] = "tok"
@@ -44,7 +44,8 @@ func TestMonitorPagesRender(t *testing.T) {
 		for _, want := range map[string][]string{
 			"dashboard": {`id="monitor-host"`, "1.8 GB de 2.0 GB", `class="spark"`, "1 sin memoria", "Traefik"},
 			"monitor":   {`class="chart"`, `href="/sites/3"`, "servicio", `class="limit"`, `class="marker"`},
-			"site":      {`class="chart"`, "12 %", "512 MB", "terminó 2 proceso", `class="active"`},
+			"site":      {`class="chart"`, "12 %", "512 MB", "terminó 2 proceso", `class="active"`,
+				`action="/sites/3/rename"`, "¿Renombrar el sitio tienda?", "<code>/var/www/html/storage</code>", "renombrar</td>"},
 		}[name] {
 			if !strings.Contains(out, want) {
 				t.Errorf("%s: falta %q", name, want)

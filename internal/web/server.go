@@ -192,6 +192,7 @@ func (s *Server) Handler() http.Handler {
 	priv("POST /sites/{id}/deploy", s.siteDeploy)
 	priv("POST /sites/{id}/control/{action}", s.siteControl)
 	priv("POST /sites/{id}/delete", s.siteDelete)
+	priv("POST /sites/{id}/rename", s.siteRename)
 	priv("GET /sites/{id}/logs", s.siteLogs)
 	priv("GET /sites/{id}/console", s.siteConsole)
 	priv("GET /sites/{id}/console/ws", s.siteConsoleWS)
