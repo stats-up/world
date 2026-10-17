@@ -456,6 +456,9 @@ details.card[open] > summary { margin-bottom: .75rem; }
 .data-grid th, .data-grid td { white-space: nowrap; font-size: .8rem; }
 .data-grid td { max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
 .data-grid th a { color: inherit; }
+.data-grid .sel { width: 1%; padding-right: 0; }
+.data-grid tr.selected td { background: var(--err-bg); }
+.bulk-delete { position: sticky; top: 0; z-index: 2; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem .75rem; }
 
 /* Correo → Seguridad */
 .plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }

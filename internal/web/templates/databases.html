@@ -3,7 +3,7 @@
 <div class="page-head">
   <div>
     <h1>Bases de datos</h1>
-    <p class="sub">{{if eq .Tab "migraciones"}}Migra una base MySQL o MariaDB completa a MainDB: tablas, datos, vistas, triggers y procedimientos. El origen solo se lee; no se modifica.{{else}}Explora tus servidores MySQL y MariaDB: bases, tablas, estructura y datos. Solo lectura: world no modifica nada.{{end}}</p>
+    <p class="sub">{{if eq .Tab "migraciones"}}Migra una base MySQL o MariaDB completa a MainDB: tablas, datos, vistas, triggers y procedimientos. El origen solo se lee; no se modifica.{{else}}Explora tus servidores MySQL y MariaDB: bases, tablas, estructura y datos. Solo se lee, salvo cuando eliminas registros (siempre con confirmación).{{end}}</p>
   </div>
 </div>
 <nav class="tabs page-tabs">
@@ -101,7 +101,7 @@
   <summary><h2 class="inline">{{icon "plus"}} Agregar instancia</h2></summary>
   <form method="post" action="/databases/instances" class="stack">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
-    <p class="muted small">Otro servidor MySQL o MariaDB para explorar (por ejemplo, el de un cPanel antes de migrarlo). Si puedes, usa un usuario de solo lectura: world solo consulta.</p>
+    <p class="muted small">Otro servidor MySQL o MariaDB para explorar (por ejemplo, el de un cPanel antes de migrarlo). Con un usuario de solo lectura puedes explorar, pero no eliminar registros.</p>
     <label>Nombre (opcional)<input name="name" value="{{.Form.name}}" placeholder="cPanel 5sconsultores" autocomplete="off"></label>
     <div class="cols">
       <label>Host<input name="host" value="{{.Form.host}}" placeholder="38.18.230.11" required autocomplete="off" spellcheck="false"></label>

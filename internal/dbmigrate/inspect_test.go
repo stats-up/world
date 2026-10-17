@@ -81,15 +81,15 @@ func TestInspectMySQL(t *testing.T) {
 	if err != nil || len(rows) != 2 || !more {
 		t.Fatalf("rows: %v %v %v", rows, more, err)
 	}
-	if r := rows[0]; r[1].Text != "José" || !r[2].Cut || len(r[2].Text) != cellMax || !r[3].Binary || r[3].Size != 4 {
+	if r := rows[0].Cells; r[1].Text != "José" || !r[2].Cut || len(r[2].Text) != cellMax || !r[3].Binary || r[3].Size != 4 {
 		t.Fatalf("fila 1: %+v", r)
 	}
-	if r := rows[1]; !r[2].Null || !r[3].Null {
+	if r := rows[1].Cells; !r[2].Null || !r[3].Null {
 		t.Fatalf("fila 2: %+v", r)
 	}
 	// El filtro escapa % y _ (busca el texto literal), y una columna desconocida se ignora.
 	_, rows, _, err = Rows(ctx, c, "t-explora", "gente", RowQuery{Limit: 50, FilterCol: "nombre", FilterVal: "%_"})
-	if err != nil || len(rows) != 1 || rows[0][1].Text != "50%_off" {
+	if err != nil || len(rows) != 1 || rows[0].Cells[1].Text != "50%_off" {
 		t.Fatalf("filtro: %v %v", rows, err)
 	}
 	_, rows, _, err = Rows(ctx, c, "t-explora", "gente", RowQuery{Limit: 50, Order: "id`; DROP TABLE gente; --", Desc: true, FilterCol: "x", FilterVal: "y"})
@@ -97,12 +97,70 @@ func TestInspectMySQL(t *testing.T) {
 		t.Fatalf("columnas inválidas: %v %v", rows, err)
 	}
 	_, rows, _, err = Rows(ctx, c, "t-explora", "gente", RowQuery{Limit: 1, Offset: 2, Order: "nombre", Desc: true})
-	if err != nil || len(rows) != 1 || rows[0][1].Text != "50%_off" { // José, Ana, 50%_off
+	if err != nil || len(rows) != 1 || rows[0].Cells[1].Text != "50%_off" { // José, Ana, 50%_off
 		t.Fatalf("orden/página: %v %v", rows, err)
 	}
 	if _, _, _, err := Rows(ctx, c, "t-explora", "no-existe", RowQuery{}); err != ErrNotFound {
 		t.Fatal(err)
 	}
+	_, rows, _, _ = Rows(ctx, c, "t-explora", "gente", RowQuery{Limit: 1, Order: "id"})
+	if rows[0].Key != `["1"]` || rows[0].Label != "id = 1" {
+		t.Fatalf("clave: %q %q", rows[0].Key, rows[0].Label)
+	}
+
+	// Eliminar: por clave, en transacción, explicando las claves foráneas.
+	db, err = open(ctx, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		"CREATE TABLE `t-explora`.`hijos` (id INT PRIMARY KEY, gente_id INT, FOREIGN KEY (gente_id) REFERENCES `t-explora`.`gente`(id))",
+		"INSERT INTO `t-explora`.`hijos` VALUES (1, 1)",
+		"CREATE TABLE `t-explora`.`sinclave` (a INT, b INT)",
+		"CREATE TABLE `t-explora`.`bin` (u BINARY(2) NOT NULL, x INT, UNIQUE KEY (u))",
+		"INSERT INTO `t-explora`.`bin` VALUES (UNHEX('00FF'), 1), (UNHEX('0100'), 2)",
+	} {
+		if _, err := db.ExecContext(ctx, q); err != nil {
+			t.Fatal(q, err)
+		}
+	}
+	count := func(q string) (n int) {
+		db.QueryRowContext(ctx, q).Scan(&n)
+		return
+	}
+	defer db.Close()
+	if td, _ := Table(ctx, c, "t-explora", "gente"); len(td.References) != 1 || td.References[0].Table != "hijos" || !td.References[0].Blocks() || !td.Deletable() {
+		t.Fatalf("referencias: %+v", td.References)
+	}
+	if n, err := DeleteRows(ctx, c, "t-explora", "gente", []string{`["2"]`}); err != nil || n != 1 {
+		t.Fatalf("eliminar: %d %v", n, err)
+	}
+	// El 1 tiene un hijo: falla y tampoco se elimina el 3 (todo o nada).
+	if _, err := DeleteRows(ctx, c, "t-explora", "gente", []string{`["3"]`, `["1"]`}); err == nil || !strings.Contains(err.Error(), "hijos.gente_id") {
+		t.Fatalf("debió fallar por la clave foránea: %v", err)
+	}
+	if n := count("SELECT count(*) FROM `t-explora`.`gente`"); n != 2 {
+		t.Fatalf("quedaron %d", n)
+	}
+	if n, err := DeleteRows(ctx, c, "t-explora", "gente", []string{`["2"]`}); err != nil || n != 0 {
+		t.Fatalf("ya eliminado: %d %v", n, err)
+	}
+	_, rows, _, _ = Rows(ctx, c, "t-explora", "bin", RowQuery{Limit: 50, Order: "x"})
+	if len(rows) != 2 || rows[0].Key != `["00FF"]` || rows[0].Label != "u = 0x00FF" {
+		t.Fatalf("clave binaria: %+v", rows)
+	}
+	if n, err := DeleteRows(ctx, c, "t-explora", "bin", []string{rows[0].Key}); err != nil || n != 1 || count("SELECT x FROM `t-explora`.`bin`") != 2 {
+		t.Fatalf("eliminar binaria: %d %v", n, err)
+	}
+	for _, bad := range []struct{ table, key string }{{"sinclave", `["1"]`}, {"v_gente", `["1"]`}, {"gente", `1`}, {"gente", `["1","2"]`}} {
+		if _, err := DeleteRows(ctx, c, "t-explora", bad.table, []string{bad.key}); err == nil {
+			t.Errorf("%s %s debió fallar", bad.table, bad.key)
+		}
+	}
+	if _, err := DeleteRows(ctx, c, "mysql", "user", []string{`["x"]`}); err == nil {
+		t.Error("base del sistema")
+	}
+
 	// La sesión es de solo lectura.
 	conn, done, err := session(ctx, c)
 	if err != nil {

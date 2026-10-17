@@ -209,6 +209,7 @@ func (s *Server) Handler() http.Handler {
 	priv("GET /databases/x/{inst}", s.dbExploreInstance)
 	priv("GET /databases/x/{inst}/{db}", s.dbExploreDatabase)
 	priv("GET /databases/x/{inst}/{db}/{table}", s.dbExploreTable)
+	priv("POST /databases/x/{inst}/{db}/{table}/delete", s.dbExploreDelete)
 	priv("POST /databases/probe", s.databaseProbe)
 	priv("POST /databases/migrations", s.migrationCreate)
 	priv("GET /databases/migrations/{id}", s.migrationShow)

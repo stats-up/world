@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -15,7 +16,8 @@ import (
 )
 
 // Explorador de bases: instancias (MainDB y otras guardadas) → bases → tablas → estructura y datos.
-// Todo es de solo lectura: cada consulta corre en una sesión READ ONLY con tiempo máximo.
+// La lectura corre en una sesión READ ONLY con tiempo máximo; la única escritura es eliminar
+// registros por su clave, con confirmación.
 
 // dbInstanceView es una instancia en las páginas del explorador (sin contraseña).
 type dbInstanceView struct {
@@ -307,7 +309,7 @@ func (s *Server) dbExploreTable(w http.ResponseWriter, r *http.Request) {
 	if q.Tab == "estructura" {
 		t, err = dbmigrate.Table(ctx, c, db, table)
 	} else {
-		var rows [][]dbmigrate.Cell
+		var rows []dbmigrate.Row
 		var more bool
 		t, rows, more, err = dbmigrate.Rows(ctx, c, db, table, q.RowQuery)
 		d["Rows"], d["More"] = rows, more
@@ -324,5 +326,69 @@ func (s *Server) dbExploreTable(w http.ResponseWriter, r *http.Request) {
 		d["Error"] = err.Error()
 	}
 	d["Table"] = t
+	d["DeleteWarning"] = deleteWarning(t)
 	s.render(w, r, "db_table", d)
+}
+
+// deleteWarning explica qué pasa con los registros de otras tablas que apuntan a los eliminados.
+func deleteWarning(t *dbmigrate.TableDetail) string {
+	var cascade, block, null []string
+	for _, ref := range t.References {
+		switch {
+		case ref.Cascade():
+			cascade = append(cascade, ref.Table)
+		case ref.Blocks():
+			block = append(block, ref.Table)
+		default:
+			null = append(null, ref.Table)
+		}
+	}
+	var out []string
+	if len(cascade) > 0 {
+		out = append(out, "También se eliminan, en cascada, sus registros relacionados en "+strings.Join(cascade, ", ")+".")
+	}
+	if len(null) > 0 {
+		out = append(out, "En "+strings.Join(null, ", ")+" la referencia queda vacía (NULL).")
+	}
+	if len(block) > 0 {
+		out = append(out, "Si tiene registros relacionados en "+strings.Join(block, ", ")+", la base rechaza la eliminación y no se borra nada.")
+	}
+	return strings.Join(out, " ")
+}
+
+// dbExploreDelete elimina registros por su clave, confirmado antes en la página con Sweet Alert.
+func (s *Server) dbExploreDelete(w http.ResponseWriter, r *http.Request) {
+	v, c, ok := s.instance(r.PathValue("inst"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	db, table := r.PathValue("db"), r.PathValue("table")
+	base := "/databases/x/" + v.Key + "/" + url.PathEscape(db) + "/" + url.PathEscape(table)
+	back := r.FormValue("back")
+	if back != base && !strings.HasPrefix(back, base+"?") {
+		back = base
+	}
+	keys := r.Form["k"]
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+	n, err := dbmigrate.DeleteRows(ctx, c, db, table, keys)
+	if err != nil {
+		s.setFlash(w, "error", "No se pudo eliminar: "+err.Error())
+		redirect(w, r, back)
+		return
+	}
+	log.Printf("bases: %s eliminó %d registro(s) de %s/%s.%s (IP %s): %s", currentUser(r).Email, n, v.Name, db, table,
+		clientIP(r), strings.Join(keys, " "))
+	switch {
+	case n == 0:
+		s.setFlash(w, "error", "No se eliminó nada: los registros ya no existían.")
+	case int(n) < len(keys):
+		s.setFlash(w, "ok", strconv.FormatInt(n, 10)+" de "+strconv.Itoa(len(keys))+" registros eliminados; el resto ya no existía.")
+	case n == 1:
+		s.setFlash(w, "ok", "Registro eliminado.")
+	default:
+		s.setFlash(w, "ok", strconv.FormatInt(n, 10)+" registros eliminados.")
+	}
+	redirect(w, r, back)
 }

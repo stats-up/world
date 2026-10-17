@@ -1,4 +1,5 @@
 {{define "title"}}{{.Table.Name}} · {{.DB}}{{end}}
+{{define "head"}}<script src="/static/db_table.js?v={{.Version}}" defer></script>{{end}}
 {{define "content"}}
 <nav class="crumbs"><a href="/databases">Bases de datos</a>{{icon "chevron"}}<a href="/databases/x/{{.Inst.Key}}">{{.Inst.Name}}</a>{{icon "chevron"}}<a href="/databases/x/{{.Inst.Key}}/{{.DB}}">{{.DB}}</a>{{icon "chevron"}}<span>{{.Table.Name}}</span></nav>
 <div class="page-head"><div class="page-title"><span class="avatar">{{icon "database"}}</span><div>
@@ -52,11 +53,36 @@
   {{if .Q.FilterVal}}<a class="button sm ghost" href="{{.Q.ClearURL .Base}}">Quitar filtro</a>{{end}}
 </form>
 {{if .Rows}}
+{{$del := .Table.Deletable}}
+{{if $del}}
+<form id="del-sel" method="post" action="{{.Base}}/delete" class="row bulk-delete" hidden
+      data-confirm="¿Eliminar los registros seleccionados?"
+      data-confirm-text="Se eliminan de la tabla {{.Table.Name}} ({{.DB}} en {{.Inst.Name}}) y no se puede deshacer. {{.DeleteWarning}}"
+      data-confirm-button="Sí, eliminar"
+      data-table="{{.Table.Name}}">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <input type="hidden" name="back" value="{{.Q.URL .Base}}">
+  <span class="small" data-sel-count></span>
+  <div class="actions">
+    <button type="button" class="sm ghost" data-sel-clear>Quitar selección</button>
+    <button type="submit" class="sm danger">{{icon "trash"}} Eliminar seleccionados</button>
+  </div>
+</form>
+{{end}}
 <section class="card flush">
-  <div class="table-wrap"><table class="table data-grid">
-    <thead><tr>{{range .Table.Columns}}<th><a href="{{$.Q.SortURL $.Base .Name}}" title="{{.Type}} · ordenar">{{.Name}}{{if eq .Name $.Q.Order}} {{if $.Q.Desc}}↓{{else}}↑{{end}}{{end}}</a></th>{{end}}</tr></thead>
+  <div class="table-wrap"><table class="table data-grid" id="grid">
+    <thead><tr>{{if $del}}<th class="sel"><input type="checkbox" data-sel-all aria-label="Seleccionar todos los de esta página"></th>{{end}}{{range .Table.Columns}}<th><a href="{{$.Q.SortURL $.Base .Name}}" title="{{.Type}} · ordenar">{{.Name}}{{if eq .Name $.Q.Order}} {{if $.Q.Desc}}↓{{else}}↑{{end}}{{end}}</a></th>{{end}}{{if $del}}<th></th>{{end}}</tr></thead>
     <tbody>
-    {{range .Rows}}<tr>{{range .}}<td>{{if .Null}}<span class="cell-null">NULL</span>{{else if .Binary}}<span class="cell-null">binario · {{size .Size}}</span>{{else}}<span title="{{.Text}}">{{.Text}}</span>{{if .Cut}}<span class="cell-null">…</span>{{end}}{{end}}</td>{{end}}</tr>
+    {{range .Rows}}<tr>{{if $del}}<td class="sel"><input type="checkbox" name="k" value="{{.Key}}" form="del-sel" aria-label="Seleccionar {{.Label}}"></td>{{end}}{{range .Cells}}<td>{{if .Null}}<span class="cell-null">NULL</span>{{else if .Binary}}<span class="cell-null">binario · {{size .Size}}</span>{{else}}<span title="{{.Text}}">{{.Text}}</span>{{if .Cut}}<span class="cell-null">…</span>{{end}}{{end}}</td>{{end}}{{if $del}}
+      <td class="num"><form method="post" action="{{$.Base}}/delete" class="inline"
+            data-confirm="¿Eliminar este registro?"
+            data-confirm-text="Se elimina el registro {{.Label}} de la tabla {{$.Table.Name}} ({{$.DB}} en {{$.Inst.Name}}) y no se puede deshacer. {{$.DeleteWarning}}"
+            data-confirm-button="Sí, eliminar">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="back" value="{{$.Q.URL $.Base}}">
+        <input type="hidden" name="k" value="{{.Key}}">
+        <button type="submit" class="sm ghost danger" title="Eliminar {{.Label}}">{{icon "trash"}}</button>
+      </form></td>{{end}}</tr>
     {{end}}
     </tbody>
   </table></div>
@@ -68,7 +94,10 @@
     {{if .More}}<a class="button sm" href="{{.Q.NextURL .Base}}">Siguientes →</a>{{end}}
   </div>
 </div>
-<p class="muted small table-note">Solo lectura. Los textos largos se muestran recortados (300 caracteres) y los binarios solo con su tamaño.</p>
+<p class="muted small table-note">Los textos largos se muestran recortados (300 caracteres) y los binarios solo con su tamaño.
+{{if $del}}Cada registro se elimina por su clave (<code>{{.Table.KeyNames}}</code>), siempre con confirmación; si la base rechaza alguno, no se elimina ninguno.
+{{else if .Table.View}}Las vistas no se editan: elimina los registros en su tabla.
+{{else if not .Table.Deletable}}{{if .Table.Key}}Las bases del sistema son de solo lectura.{{else}}Solo lectura: la tabla no tiene clave primaria ni un índice único para identificar cada registro.{{end}}{{end}}</p>
 {{else if not .Error}}
 <div class="card empty-state">{{icon "database"}}<strong>{{if .Q.FilterVal}}Ningún registro coincide con el filtro{{else if gt .Q.Offset 0}}No hay más registros{{else}}La tabla no tiene registros{{end}}</strong></div>
 {{end}}

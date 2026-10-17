@@ -3,14 +3,16 @@ package dbmigrate
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 	"unicode/utf8"
 )
 
-// Explorador de solo lectura: bases, tablas, estructura y datos de una instancia MySQL/MariaDB.
-// Cada consulta corre en una sesión READ ONLY y con tiempo máximo, para no cargar el servidor.
+// Explorador: bases, tablas, estructura y datos de una instancia MySQL/MariaDB.
+// Cada consulta de lectura corre en una sesión READ ONLY y con tiempo máximo, para no cargar el servidor.
+// La única escritura es eliminar registros por su clave (delete.go).
 
 // ServerSummary es lo que se muestra de una instancia.
 type ServerSummary struct {
@@ -205,9 +207,90 @@ var ErrNotFound = fmt.Errorf("no existe")
 // TableDetail es la estructura de una tabla o vista.
 type TableDetail struct {
 	TableSummary
-	Columns []Column
-	Indexes []Index
-	Create  string
+	DB         string
+	Columns    []Column
+	Indexes    []Index
+	Create     string
+	References []Reference // claves foráneas de otras tablas que apuntan a esta
+}
+
+// Reference es una clave foránea de otra tabla que apunta a esta.
+type Reference struct {
+	Table    string // base.tabla si es de otra base
+	Column   string
+	OnDelete string // CASCADE, SET NULL, RESTRICT, NO ACTION
+}
+
+// Cascade: al eliminar aquí se borran también los registros relacionados.
+func (r Reference) Cascade() bool { return r.OnDelete == "CASCADE" }
+
+// Blocks: la base rechaza eliminar un registro que tenga relacionados.
+func (r Reference) Blocks() bool { return r.OnDelete == "RESTRICT" || r.OnDelete == "NO ACTION" }
+
+// Key son las columnas que identifican un registro: la clave primaria, o si no hay,
+// el primer índice único con todas sus columnas NOT NULL. Vacío si no hay ninguna
+// (o si incluye textos largos, que no se traen completos).
+func (t *TableDetail) Key() []*Column {
+	if t.View() {
+		return nil
+	}
+	var pick *Index
+	for i := range t.Indexes {
+		ix := &t.Indexes[i]
+		if ix.Name == "PRIMARY" {
+			pick = ix
+			break
+		}
+	}
+	if pick == nil {
+		for i := range t.Indexes {
+			ix := &t.Indexes[i]
+			if !ix.Unique {
+				continue
+			}
+			ok := true
+			for _, name := range ix.columnList() {
+				if col := t.Column(name); col == nil || col.Nullable {
+					ok = false
+				}
+			}
+			if ok {
+				pick = ix
+				break
+			}
+		}
+	}
+	if pick == nil {
+		return nil
+	}
+	var out []*Column
+	for _, name := range pick.columnList() {
+		col := t.Column(name)
+		if col == nil || col.Long() {
+			return nil
+		}
+		out = append(out, col)
+	}
+	return out
+}
+
+// KeyNames: nombres de las columnas de la clave, para mostrar.
+func (t *TableDetail) KeyNames() string {
+	var n []string
+	for _, c := range t.Key() {
+		n = append(n, c.Name)
+	}
+	return strings.Join(n, ", ")
+}
+
+// Deletable: se pueden eliminar registros (tabla de una base de usuario, con clave).
+func (t *TableDetail) Deletable() bool { return !systemDB(t.DB) && len(t.Key()) > 0 }
+
+func (ix *Index) columnList() []string {
+	if ix.Columns == "" {
+		return nil
+	}
+	return strings.Split(ix.Columns, ", ")
 }
 
 func (t *TableDetail) Column(name string) *Column {
@@ -230,7 +313,7 @@ func Table(ctx context.Context, c Conn, db, table string) (*TableDetail, error) 
 }
 
 func tableDetail(ctx context.Context, conn *sql.Conn, db, table string) (*TableDetail, error) {
-	t := &TableDetail{}
+	t := &TableDetail{DB: db}
 	var updated int64
 	err := conn.QueryRowContext(ctx, `SELECT table_name, table_type, COALESCE(engine, ''), COALESCE(table_collation, ''),
 		COALESCE(table_rows, 0), COALESCE(data_length, 0), COALESCE(index_length, 0), COALESCE(UNIX_TIMESTAMP(update_time), 0),
@@ -279,6 +362,24 @@ func tableDetail(ctx context.Context, conn *sql.Conn, db, table string) (*TableD
 		}
 		rows.Close()
 	}
+	rows, err = conn.QueryContext(ctx, `SELECT k.table_schema, k.table_name, k.column_name, r.delete_rule
+		FROM information_schema.key_column_usage k JOIN information_schema.referential_constraints r
+		  ON r.constraint_schema = k.constraint_schema AND r.constraint_name = k.constraint_name AND r.table_name = k.table_name
+		WHERE k.referenced_table_schema = ? AND k.referenced_table_name = ?
+		ORDER BY k.table_schema <> ?, k.table_name, k.column_name`, db, table, db)
+	if err == nil {
+		for rows.Next() {
+			var schema string
+			var ref Reference
+			if rows.Scan(&schema, &ref.Table, &ref.Column, &ref.OnDelete) == nil {
+				if schema != db {
+					ref.Table = schema + "." + ref.Table
+				}
+				t.References = append(t.References, ref)
+			}
+		}
+		rows.Close()
+	}
 	// SHOW CREATE devuelve 2 columnas en tablas y 4 en vistas: la definición es la segunda.
 	if r, err := conn.QueryContext(ctx, `SHOW CREATE TABLE `+quoteIdent(db)+`.`+quoteIdent(table)); err == nil {
 		if cols, _ := r.Columns(); r.Next() && len(cols) >= 2 {
@@ -296,8 +397,16 @@ func tableDetail(ctx context.Context, conn *sql.Conn, db, table string) (*TableD
 	return t, nil
 }
 
+// Row es un registro de la grilla. Key identifica el registro para eliminarlo (JSON con los
+// valores de la clave; los binarios en hexadecimal); vacío si la tabla no tiene clave.
+type Row struct {
+	Cells []Cell
+	Key   string
+	Label string // la clave para mostrar, ej: id = 42
+}
+
 // Rows trae una página de datos. Los textos largos se recortan y los binarios se reemplazan por su tamaño.
-func Rows(ctx context.Context, c Conn, db, table string, q RowQuery) (*TableDetail, [][]Cell, bool, error) {
+func Rows(ctx context.Context, c Conn, db, table string, q RowQuery) (*TableDetail, []Row, bool, error) {
 	conn, done, err := session(ctx, c)
 	if err != nil {
 		return nil, nil, false, err
@@ -321,6 +430,14 @@ func Rows(ctx context.Context, c Conn, db, table string, q RowQuery) (*TableDeta
 			sel[i] = id
 		}
 	}
+	key := t.Key()
+	for _, col := range key { // la clave completa, aparte de lo que se muestra
+		if col.Binary() {
+			sel = append(sel, "HEX("+quoteIdent(col.Name)+")")
+		} else {
+			sel = append(sel, quoteIdent(col.Name))
+		}
+	}
 	query := "SELECT " + strings.Join(sel, ", ") + " FROM " + quoteIdent(db) + "." + quoteIdent(table)
 	var args []any
 	if col := t.Column(q.FilterCol); col != nil && q.FilterVal != "" {
@@ -339,8 +456,8 @@ func Rows(ctx context.Context, c Conn, db, table string, q RowQuery) (*TableDeta
 		return t, nil, false, err
 	}
 	defer rows.Close()
-	var out [][]Cell
-	raw := make([]sql.RawBytes, len(t.Columns))
+	var out []Row
+	raw := make([]sql.RawBytes, len(sel))
 	ptrs := make([]any, len(raw))
 	for i := range raw {
 		ptrs[i] = &raw[i]
@@ -349,8 +466,8 @@ func Rows(ctx context.Context, c Conn, db, table string, q RowQuery) (*TableDeta
 		if err := rows.Scan(ptrs...); err != nil {
 			return t, nil, false, err
 		}
-		row := make([]Cell, len(raw))
-		for i, v := range raw {
+		row := make([]Cell, len(t.Columns))
+		for i, v := range raw[:len(t.Columns)] {
 			col := &t.Columns[i]
 			switch {
 			case v == nil:
@@ -363,7 +480,22 @@ func Rows(ctx context.Context, c Conn, db, table string, q RowQuery) (*TableDeta
 				row[i] = textCell(string(v))
 			}
 		}
-		out = append(out, row)
+		r := Row{Cells: row}
+		if len(key) > 0 {
+			vals := make([]string, len(key))
+			labels := make([]string, len(key))
+			for i, v := range raw[len(t.Columns):] {
+				vals[i] = string(v)
+				shown := textCell(vals[i]).Text
+				if key[i].Binary() {
+					shown = "0x" + vals[i]
+				}
+				labels[i] = key[i].Name + " = " + shown
+			}
+			b, _ := json.Marshal(vals)
+			r.Key, r.Label = string(b), strings.Join(labels, ", ")
+		}
+		out = append(out, r)
 	}
 	if err := rows.Err(); err != nil {
 		return t, nil, false, err
