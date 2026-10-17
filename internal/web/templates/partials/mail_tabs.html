@@ -1,0 +1,6 @@
+{{define "mail_tabs"}}
+<nav class="tabs page-tabs">
+  <a href="/mail"{{if eq . "domains"}} class="active" aria-current="page"{{end}}>{{icon "mail"}} Dominios</a>
+  <a href="/mail/security"{{if eq . "security"}} class="active" aria-current="page"{{end}}>{{icon "shield"}} Seguridad</a>
+</nav>
+{{end}}

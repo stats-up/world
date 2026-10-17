@@ -8,6 +8,7 @@
   </div>
   {{if .Domains}}<div class="actions"><a class="button primary" href="/mail/domains/new">{{icon "plus"}} Nuevo dominio</a></div>{{end}}
 </div>
+{{if not .Disabled}}{{template "mail_tabs" "domains"}}{{end}}
 
 {{if .Disabled}}
 <div class="card empty-state">

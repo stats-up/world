@@ -424,6 +424,27 @@ func (c *Client) NetworkEnsure(ctx context.Context, name string) error {
 	return c.call(ctx, "POST", "/networks/create", nil, body, nil)
 }
 
+// NetworkSubnets devuelve las subredes IPv4/IPv6 de una red (ej: 172.18.0.0/16).
+func (c *Client) NetworkSubnets(ctx context.Context, name string) ([]string, error) {
+	var n struct {
+		IPAM struct {
+			Config []struct {
+				Subnet string `json:"Subnet"`
+			} `json:"Config"`
+		} `json:"IPAM"`
+	}
+	if err := c.call(ctx, "GET", "/networks/"+name, nil, nil, &n); err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, cfg := range n.IPAM.Config {
+		if cfg.Subnet != "" {
+			out = append(out, cfg.Subnet)
+		}
+	}
+	return out, nil
+}
+
 // --- Métricas ---
 
 // Stats es la parte de /containers/{id}/stats que usa el monitoreo.

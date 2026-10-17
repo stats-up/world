@@ -1,0 +1,125 @@
+{{define "title"}}Seguridad · Correo{{end}}
+{{define "head"}}<script src="/static/sort.js?v={{.Version}}" defer></script>{{end}}
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>Correo</h1>
+    <p class="sub">Stalwart bloquea solo las IPs que fallan muchas veces al autenticarse, escanean puertos o abusan del servidor. Aquí puedes desbloquearlas y definir IPs que nunca se bloquean.</p>
+  </div>
+</div>
+{{template "mail_tabs" "security"}}
+
+{{if .ServerBlocked}}
+<div class="flash error">{{icon "alert"}}<div>
+  <strong>Stalwart está bloqueando {{if eq (len .ServerBlocked) 1}}una dirección{{else}}{{len .ServerBlocked}} direcciones{{end}} del propio servidor.</strong>
+  Los sitios que se conectan por ahí no pueden enviar correo.
+  <form method="post" action="/mail/security/unblock" class="inline"
+        data-confirm="¿Desbloquear las direcciones del servidor?"
+        data-confirm-text="Se quitan los bloqueos de {{range $i, $b := .ServerBlocked}}{{if $i}}, {{end}}{{$b.Address}}{{end}}. Para que no vuelva a pasar, agrégalas también a las IPs permitidas."
+        data-confirm-button="Sí, desbloquear">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    {{range .ServerBlocked}}<input type="hidden" name="id" value="{{.ID}}">{{end}}
+    <button type="submit" class="sm">{{icon "check"}} Desbloquear</button>
+  </form>
+</div></div>
+{{end}}
+
+<section class="card flush">
+  <div class="row"><h2>{{icon "shield"}} IPs bloqueadas <span class="muted small">{{len .Blocked}}</span></h2></div>
+  {{if .Blocked}}
+  <div class="row filters">
+    <label class="search">{{icon "search"}}<input type="search" placeholder="Buscar IP…" data-filter="#blocked" aria-label="Buscar IP"></label>
+    <select data-filter="#blocked" data-filter-key="reason" aria-label="Motivo">
+      <option value="">Todos los motivos</option>
+      <option value="authFailure">Fallas de autenticación</option>
+      <option value="portScanning">Escaneo de puertos</option>
+      <option value="rcptToFailure">Destinatarios inválidos</option>
+      <option value="loitering">Conexiones colgadas</option>
+      <option value="manual">Manual</option>
+      <option value="other">Otro</option>
+    </select>
+    <span class="muted small" id="tabla-count"></span>
+  </div>
+  <div class="table-wrap"><table class="table sortable" id="blocked">
+    <thead><tr><th data-sort="text">IP</th><th data-sort="text">Motivo</th><th data-sort="num" aria-sort="descending">Desde</th><th class="hide-sm">Vence</th><th></th></tr></thead>
+    <tbody>
+    {{range .Blocked}}
+      <tr data-reason="{{with .ReasonText}}{{.}}{{else}}other{{end}}">
+        <td><code>{{.Address}}</code>{{with .Server}}<br><span class="badge err">{{.}}</span>{{end}}</td>
+        <td class="small">{{.BlockReason}}</td>
+        <td class="small" data-v="{{.CreatedAt.Unix}}">{{ago .CreatedAt}}</td>
+        <td class="small hide-sm">{{.Expires}}</td>
+        <td class="num">
+          <form method="post" action="/mail/security/unblock" class="inline"
+                data-confirm="¿Desbloquear {{.Address}}?"
+                data-confirm-text="Stalwart la bloqueó por: {{.BlockReason}}. Al desbloquearla puede volver a conectarse y a intentar autenticarse; si el abuso sigue, se bloqueará de nuevo."
+                data-confirm-button="Sí, desbloquear">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="id" value="{{.ID}}">
+            <button type="submit" class="sm">Desbloquear</button>
+          </form>
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  <p class="muted small" id="tabla-empty" hidden>No hay IPs que coincidan.</p>
+  {{else}}
+  <p class="muted small card-pad">No hay IPs bloqueadas.</p>
+  {{end}}
+</section>
+
+<section class="card stack" id="permitidas">
+  <h2>{{icon "check"}} IPs permitidas</h2>
+  <p class="muted small">Stalwart nunca las bloquea automáticamente. Úsalo solo para direcciones tuyas: el servidor, la red interna de Docker o la IP fija de tu oficina. Agregar una IP aquí no levanta un bloqueo que ya existe; desbloquéala arriba también.</p>
+
+  {{if .ServerAddrs}}
+  <ul class="plain-list">
+    {{range .ServerAddrs}}
+    <li class="row"><div><code>{{.Address}}</code> <span class="muted small">{{.Label}}</span></div>
+      {{if .Allowed}}<span class="badge ok">permitida</span>{{else}}
+      <form method="post" action="/mail/security/allowed" class="inline">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="address" value="{{.Address}}">
+        <input type="hidden" name="reason" value="{{.Label}}">
+        <button type="submit" class="sm">{{icon "plus"}} Permitir</button>
+      </form>{{end}}
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+
+  {{if .Allowed}}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>IP o red</th><th>Motivo</th><th class="hide-sm">Agregada</th><th></th></tr></thead>
+    <tbody>
+    {{range .Allowed}}
+      <tr>
+        <td><code>{{.Address}}</code></td>
+        <td class="small">{{.ReasonText}}</td>
+        <td class="small hide-sm">{{ago .CreatedAt}}</td>
+        <td class="num">
+          <form method="post" action="/mail/security/allowed/{{.ID}}/delete" class="inline"
+                data-confirm="¿Quitar {{.Address}} de las permitidas?"
+                data-confirm-text="Stalwart podrá volver a bloquearla automáticamente si falla muchas veces al autenticarse. Si es una dirección del servidor, un bloqueo dejaría a los sitios sin poder enviar correo."
+                data-confirm-button="Sí, quitar">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <button type="submit" class="sm ghost danger" title="Quitar">{{icon "trash"}}</button>
+          </form>
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  {{end}}
+
+  <form method="post" action="/mail/security/allowed" class="stack">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <div class="cols">
+      <label>IP o red<input name="address" placeholder="203.0.113.7 o 172.18.0.0/16" required autocomplete="off" spellcheck="false"></label>
+      <label>Motivo (opcional)<input name="reason" placeholder="IP fija de la oficina" autocomplete="off"></label>
+    </div>
+    <div class="actions"><button type="submit">{{icon "plus"}} Agregar a permitidas</button></div>
+  </form>
+</section>
+{{end}}

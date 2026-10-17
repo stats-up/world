@@ -456,3 +456,8 @@ details.card[open] > summary { margin-bottom: .75rem; }
 .data-grid th, .data-grid td { white-space: nowrap; font-size: .8rem; }
 .data-grid td { max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
 .data-grid th a { color: inherit; }
+
+/* Correo → Seguridad */
+.plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.plain-list li { padding: .45rem .6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.card-pad { padding: .4rem 1.5rem 1.1rem; }
