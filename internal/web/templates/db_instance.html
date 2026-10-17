@@ -35,4 +35,23 @@
 </section>
 <p class="muted small table-note">Registros y espacio son estimaciones del motor (information_schema); en InnoDB pueden variar unos porcentajes.</p>
 {{end}}
+
+{{if .Inst.Summary}}
+<section class="card stack" id="nueva-base">
+  <h2>{{icon "plus"}} Nueva base de datos</h2>
+  <p class="muted small">Se crea vacía, con juego de caracteres utf8mb4 (admite tildes, ñ y emojis). Después puedes migrar datos hacia ella o dejar que la aplicación cree sus tablas con sus migraciones.</p>
+  <form method="post" action="/databases/x/{{.Inst.Key}}/databases" class="stack">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <div class="cols">
+      <label>Nombre<input name="name" required maxlength="64" pattern="[A-Za-z0-9_]+" title="Letras, números y guion bajo" placeholder="client_tienda" autocomplete="off" spellcheck="false"></label>
+      <label>Intercalación
+        <select name="collation">
+          {{range .Collations}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+        </select>
+      </label>
+    </div>
+    <div class="actions"><button type="submit">{{icon "plus"}} Crear base</button></div>
+  </form>
+</section>
+{{end}}
 {{end}}

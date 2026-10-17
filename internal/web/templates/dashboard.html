@@ -10,6 +10,7 @@
 </div>
 
 {{if .DockerError}}<div class="flash error">{{icon "alert"}}<div>No se pudo conectar con Docker: {{.DockerError}}</div></div>{{end}}
+{{template "problems" .}}
 {{if not .PanelDomain}}
 <div class="flash info">{{icon "lock"}}<div>El panel aún no tiene dominio y se está usando sin HTTPS. Configúralo en <a href="/settings">Ajustes</a>.</div></div>
 {{end}}

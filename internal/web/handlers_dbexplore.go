@@ -189,7 +189,27 @@ func (s *Server) dbExploreInstance(w http.ResponseWriter, r *http.Request) {
 		v.Err = err.Error()
 	}
 	v.Summary = sum
-	s.render(w, r, "db_instance", data{"Inst": v})
+	s.render(w, r, "db_instance", data{"Inst": v, "Collations": dbmigrate.Collations})
+}
+
+// dbCreateDatabase crea una base vacía en la instancia.
+func (s *Server) dbCreateDatabase(w http.ResponseWriter, r *http.Request) {
+	v, c, ok := s.instance(r.PathValue("inst"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("name"))
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+	if err := dbmigrate.CreateEmptyDatabase(ctx, c, name, r.FormValue("collation")); err != nil {
+		s.setFlash(w, "error", "No se pudo crear la base: "+err.Error())
+		redirect(w, r, "/databases/x/"+v.Key+"#nueva-base")
+		return
+	}
+	log.Printf("bases: %s creó la base %s en %s (IP %s)", currentUser(r).Email, name, v.Name, clientIP(r))
+	s.setFlash(w, "ok", "Base "+name+" creada.")
+	redirect(w, r, "/databases/x/"+v.Key+"/"+url.PathEscape(name))
 }
 
 func (s *Server) dbExploreDatabase(w http.ResponseWriter, r *http.Request) {

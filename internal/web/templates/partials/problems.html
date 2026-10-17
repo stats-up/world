@@ -1,0 +1,18 @@
+{{define "problems"}}
+{{if .Problems}}
+<section class="card flush problems" id="problemas">
+  <div class="row"><h2>{{icon "alert"}} Problemas <span class="muted small">{{len .Problems}}</span></h2></div>
+  <ul class="problem-list">
+    {{range .Problems}}
+    <li class="problem {{.Level}}">
+      <span class="badge {{if .Err}}err{{else}}warn{{end}}">{{if .Err}}falla{{else}}atención{{end}}</span>
+      <div><strong>{{.Area}}</strong> · {{.Title}}{{with .Detail}}<br><span class="muted small">{{.}}</span>{{end}}</div>
+      {{if .Link}}<a class="button sm ghost" href="{{.Link}}">{{.LinkText}}</a>{{end}}
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{else if .ProblemsAll}}
+<section class="card"><p class="muted">{{icon "check"}} Sin problemas: los sitios, el cron, los servicios de world y el correo están funcionando.</p></section>
+{{end}}
+{{end}}

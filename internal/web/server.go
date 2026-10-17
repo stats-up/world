@@ -208,6 +208,7 @@ func (s *Server) Handler() http.Handler {
 	priv("POST /databases/instances", s.dbInstanceCreate)
 	priv("POST /databases/instances/{id}/delete", s.dbInstanceDelete)
 	priv("GET /databases/x/{inst}", s.dbExploreInstance)
+	priv("POST /databases/x/{inst}/databases", s.dbCreateDatabase)
 	priv("GET /databases/x/{inst}/{db}", s.dbExploreDatabase)
 	priv("GET /databases/x/{inst}/{db}/{table}", s.dbExploreTable)
 	priv("POST /databases/x/{inst}/{db}/{table}/delete", s.dbExploreDelete)

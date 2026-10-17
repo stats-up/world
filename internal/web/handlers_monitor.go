@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"math"
@@ -311,7 +312,13 @@ func (s *Server) monitorPage(w http.ResponseWriter, r *http.Request) {
 	to := time.Now().Unix()
 	from := to - int64(rg.Span.Seconds())
 	b := rg.Bucket
-	d := data{"Mon": s.monitorView(true), "Range": rg, "Ranges": siteRanges}
+	mon := s.monitorView(true)
+	d := data{"Mon": mon, "Range": rg, "Ranges": siteRanges}
+	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+	defer cancel()
+	cs, _ := s.engine.Containers(ctx)
+	d["Problems"] = s.problems(ctx, cs, mon, s.healthStatus(ctx))
+	d["ProblemsAll"] = true
 	pts, err := s.st.HostSeries(rg.Res, from)
 	if err != nil {
 		d["Error"] = err.Error()

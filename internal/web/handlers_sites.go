@@ -56,6 +56,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 		d["Containers"] = cs
 		d["Traefik"] = s.proxy.Status(ctx)
+		d["Problems"] = s.problems(ctx, cs, d["Mon"].(monView), d["Health"].(healthReport))
 	} else {
 		d["DockerError"] = err.Error()
 	}

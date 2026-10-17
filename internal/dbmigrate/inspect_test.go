@@ -161,6 +161,26 @@ func TestInspectMySQL(t *testing.T) {
 		t.Error("base del sistema")
 	}
 
+	// Crear bases vacías desde el explorador.
+	db.ExecContext(ctx, "DROP DATABASE IF EXISTS `t_nueva`")
+	defer db.ExecContext(ctx, "DROP DATABASE IF EXISTS `t_nueva`")
+	if err := CreateEmptyDatabase(ctx, c, "t_nueva", "utf8mb4_unicode_ci"); err != nil {
+		t.Fatal(err)
+	}
+	var coll string
+	db.QueryRowContext(ctx, "SELECT default_collation_name FROM information_schema.schemata WHERE schema_name = 't_nueva'").Scan(&coll)
+	if coll != "utf8mb4_unicode_ci" {
+		t.Fatalf("intercalación: %q", coll)
+	}
+	if err := CreateEmptyDatabase(ctx, c, "t_nueva", "utf8mb4_unicode_ci"); err == nil || !strings.Contains(err.Error(), "ya existe") {
+		t.Fatalf("duplicada: %v", err)
+	}
+	for _, bad := range [][2]string{{"t-guion", "utf8mb4_unicode_ci"}, {"mysql", "utf8mb4_unicode_ci"}, {"t_x", "latin1_swedish_ci"}, {"t_x`; DROP", "utf8mb4_bin"}} {
+		if err := CreateEmptyDatabase(ctx, c, bad[0], bad[1]); err == nil {
+			t.Errorf("%v debió fallar", bad)
+		}
+	}
+
 	// La sesión es de solo lectura.
 	conn, done, err := session(ctx, c)
 	if err != nil {
