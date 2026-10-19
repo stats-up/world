@@ -4,7 +4,7 @@
 <div class="page-head"><div class="page-title"><span class="avatar">{{icon "database"}}</span><div>
   <h1><code>{{.DB}}</code></h1>
   <p class="sub">{{.Count}} tablas · {{.Views}} vistas · ≈ {{num .Rows}} registros · {{size .Total}}</p></div></div>
-  <div class="actions"><a class="button" href="/databases/users/{{.Inst.Key}}?db={{.DB}}#nuevo">{{icon "user"}} Crear usuario para esta base</a></div></div>
+  <div class="actions"><a class="button" href="#usuarios">{{icon "user"}} Usuarios con acceso{{with .Access}} <span class="badge">{{len .}}</span>{{end}}</a></div></div>
 
 {{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
 {{if .Tables}}
@@ -37,5 +37,45 @@
 </section>
 {{else if not .Error}}
 <div class="card empty-state">{{icon "database"}}<strong>La base está vacía</strong></div>
+
 {{end}}
+<section class="card stack" id="usuarios">
+  <div class="row"><h2>{{icon "user"}} Usuarios con acceso</h2>
+    <a class="button sm" href="/databases/users/{{.Inst.Key}}?db={{.DB}}#nuevo">{{icon "plus"}} Crear usuario para esta base</a></div>
+  {{with .UsersError}}<p class="muted small">No se pudieron leer los usuarios: {{.}}</p>{{end}}
+  {{if .Access}}
+  <ul class="plain-list">
+    {{range .Access}}
+    <li class="row"><div><code>{{.User.User}}</code><span class="muted small">@{{.User.Host}}</span>
+      · <strong>{{.Grant.ProfileLabel}}</strong>{{if .Grant.Pattern}} <span class="badge" title="El acceso es por el patrón {{.Grant.Name}}: aplica a todas las bases que calcen">por patrón {{.Grant.Name}}</span>{{end}}
+      <br><span class="muted small">{{join .Grant.Privs ", "}}</span></div>
+      {{if and .User.Editable (not .Grant.Pattern)}}
+      <form method="post" action="/databases/users/{{$.Inst.Key}}/revoke" class="inline"
+            data-confirm="¿Quitar el acceso de {{.User.User}} a {{$.DB}}?"
+            data-confirm-text="{{.User.User}} deja de poder leer y escribir en {{$.DB}}. Si una aplicación lo usa con esta base, deja de funcionar. Los datos no se tocan."
+            data-confirm-button="Sí, quitar el acceso">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="user" value="{{.User.User}}"><input type="hidden" name="host" value="{{.User.Host}}">
+        <input type="hidden" name="db" value="{{.Grant.DB}}"><input type="hidden" name="back_db" value="{{$.DB}}">
+        <button type="submit" class="sm ghost">Quitar acceso</button>
+      </form>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+  {{else if not .UsersError}}<p class="muted small">Ningún usuario de aplicación tiene acceso a esta base todavía.</p>{{end}}
+
+  {{with .GlobalAccess}}
+  <p class="muted small">También entran, por sus permisos sobre todas las bases: {{range $i, $a := .}}{{if $i}}, {{end}}<code>{{$a.User.User}}</code>{{if $a.User.Self}} (administrador){{end}}{{end}}.</p>
+  {{end}}
+
+  {{if .OtherUsers}}
+  <form method="post" action="/databases/users/{{.Inst.Key}}/grant" class="inline-form" id="dar-acceso">
+    <input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="db" value="{{.DB}}"><input type="hidden" name="back_db" value="{{.DB}}">
+    <select name="account" aria-label="Usuario">{{range .OtherUsers}}<option value="{{.User}}|{{.Host}}">{{.User}}@{{.Host}}</option>{{end}}</select>
+    <select name="profile" aria-label="Perfil">{{range .Profiles}}<option value="{{.Key}}">{{.Label}}</option>{{end}}</select>
+    <button type="submit" class="sm">Dar acceso</button>
+  </form>
+  {{end}}
+  <p class="muted small">Todos los usuarios y sus accesos se administran en <a href="/databases/users/{{.Inst.Key}}">{{.Inst.Name}} → Usuarios</a>.</p>
+</section>
 {{end}}

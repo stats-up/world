@@ -193,3 +193,35 @@ func TestUsersMySQL(t *testing.T) {
 		t.Fatal("el usuario debió eliminarse")
 	}
 }
+
+func TestAccessTo(t *testing.T) {
+	for _, c := range []struct {
+		p, s string
+		ok   bool
+	}{
+		{`tienda`, "tienda", true}, {`tienda`, "tiendas", false},
+		{`app\_db`, "app_db", true}, {`app\_db`, "appxdb", false}, {`app_db`, "appxdb", true},
+		{`cliente%`, "cliente_uno", true}, {`cliente%`, "otro", false}, {`%`, "lo_que_sea", true},
+	} {
+		if likeMatch(c.p, c.s) != c.ok {
+			t.Errorf("likeMatch(%q, %q) = %v", c.p, c.s, !c.ok)
+		}
+	}
+	users := []DBUser{
+		{User: "admin", Host: "%", Global: []string{"SELECT"}, Self: true},
+		{User: "app_tienda", Host: "%", Grants: []DBGrant{{DB: `tienda`, Name: "tienda"}}},
+		{User: "reportes", Host: "%", Grants: []DBGrant{{DB: `cliente%`, Name: "cliente%", Pattern: true}}},
+		{User: "rdsadmin", Host: "localhost", Global: []string{"SELECT"}, System: true},
+	}
+	direct, global := AccessTo(users, "tienda")
+	if len(direct) != 1 || direct[0].User.User != "app_tienda" || len(global) != 1 || global[0].User.User != "admin" {
+		t.Errorf("tienda: direct=%v global=%v", direct, global)
+	}
+	if direct, _ := AccessTo(users, "cliente_uno"); len(direct) != 1 || direct[0].User.User != "reportes" {
+		t.Errorf("cliente_uno: %v", direct)
+	}
+	m := UsersByDB(users, []string{"tienda", "vacia"})
+	if len(m["tienda"]) != 1 || len(m["vacia"]) != 0 {
+		t.Errorf("UsersByDB: %v", m)
+	}
+}

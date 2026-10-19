@@ -56,6 +56,15 @@ func (s *Server) dbUsers(w http.ResponseWriter, r *http.Request) {
 
 func usersURL(v *dbInstanceView) string { return "/databases/users/" + v.Key }
 
+// usersBack: a dónde volver después de dar o quitar un acceso: a la página de la base si se hizo
+// desde ahí, si no a Usuarios.
+func usersBack(r *http.Request, v *dbInstanceView) string {
+	if db := r.FormValue("back_db"); db != "" {
+		return "/databases/x/" + v.Key + "/" + url.PathEscape(db) + "#usuarios"
+	}
+	return usersURL(v)
+}
+
 // showSecret muestra la contraseña recién generada, una sola vez y sin que quede en caché.
 func (s *Server) showSecret(w http.ResponseWriter, r *http.Request, v *dbInstanceView, c dbmigrate.Conn, user, db, pass, title string) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -94,6 +103,10 @@ func (s *Server) dbUserGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, host, db, profile := r.FormValue("user"), r.FormValue("host"), r.FormValue("db"), r.FormValue("profile")
+	if a := r.FormValue("account"); a != "" {
+		// Desde la página de la base: un solo selector con usuario|host.
+		user, host, _ = strings.Cut(a, "|")
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
 	if err := dbmigrate.Grant(ctx, c, user, host, db, profile); err != nil {
@@ -106,7 +119,7 @@ func (s *Server) dbUserGrant(w http.ResponseWriter, r *http.Request) {
 		}
 		s.setFlash(w, "ok", user+" ahora tiene acceso «"+label+"» a "+db+".")
 	}
-	redirect(w, r, usersURL(v))
+	redirect(w, r, usersBack(r, v))
 }
 
 func (s *Server) dbUserRevoke(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +137,7 @@ func (s *Server) dbUserRevoke(w http.ResponseWriter, r *http.Request) {
 		log.Printf("bases: %s quitó el acceso de %s@%s a %s en %s (IP %s)", currentUser(r).Email, user, host, db, v.Name, clientIP(r))
 		s.setFlash(w, "ok", "Acceso quitado.")
 	}
-	redirect(w, r, usersURL(v))
+	redirect(w, r, usersBack(r, v))
 }
 
 func (s *Server) dbUserPassword(w http.ResponseWriter, r *http.Request) {

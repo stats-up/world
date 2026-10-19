@@ -189,7 +189,17 @@ func (s *Server) dbExploreInstance(w http.ResponseWriter, r *http.Request) {
 		v.Err = err.Error()
 	}
 	v.Summary = sum
-	s.render(w, r, "db_instance", data{"Inst": v, "Collations": dbmigrate.Collations})
+	d := data{"Inst": v, "Collations": dbmigrate.Collations}
+	if sum != nil {
+		if users, err := dbmigrate.Users(ctx, c); err == nil {
+			var dbs []string
+			for _, db := range sum.Databases {
+				dbs = append(dbs, db.Name)
+			}
+			d["DBUsers"], d["UsersOK"] = dbmigrate.UsersByDB(users, dbs), true
+		}
+	}
+	s.render(w, r, "db_instance", d)
 }
 
 // dbCreateDatabase crea una base vacía en la instancia.
@@ -235,9 +245,28 @@ func (s *Server) dbExploreDatabase(w http.ResponseWriter, r *http.Request) {
 			views++
 		}
 	}
-	d := data{"Inst": v, "DB": db, "Tables": tables, "Total": total, "Rows": rows, "Views": views, "Count": len(tables) - views}
+	d := data{"Inst": v, "DB": db, "Tables": tables, "Total": total, "Rows": rows, "Views": views, "Count": len(tables) - views,
+		"Profiles": dbmigrate.Profiles}
 	if err != nil {
 		d["Error"] = err.Error()
+	}
+	if users, err := dbmigrate.Users(ctx, c); err != nil {
+		d["UsersError"] = err.Error()
+	} else {
+		direct, global := dbmigrate.AccessTo(users, db)
+		d["Access"], d["GlobalAccess"] = direct, global
+		// Cuentas de aplicación que todavía no entran a esta base: se les puede dar acceso desde aquí.
+		has := map[string]bool{}
+		for _, a := range direct {
+			has[a.User.Account()] = true
+		}
+		var others []dbmigrate.DBUser
+		for _, u := range users {
+			if u.Editable() && !has[u.Account()] {
+				others = append(others, u)
+			}
+		}
+		d["OtherUsers"] = others
 	}
 	s.render(w, r, "db_database", d)
 }

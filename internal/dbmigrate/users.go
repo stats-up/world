@@ -438,3 +438,71 @@ func userError(err error, c Conn) error {
 	}
 	return errors.New(me.Message)
 }
+
+// Access es el acceso de un usuario a una base concreta (para listarlo desde la base).
+type Access struct {
+	User  *DBUser
+	Grant *DBGrant // nil si accede por permisos globales
+}
+
+// AccessTo devuelve quiénes pueden entrar a la base db: por un GRANT sobre ella (o un patrón que
+// la incluye) o por permisos globales. Las cuentas del sistema no se listan.
+func AccessTo(users []DBUser, db string) (direct, global []Access) {
+	for i := range users {
+		u := &users[i]
+		if u.System && !u.Self {
+			continue
+		}
+		found := false
+		for j := range u.Grants {
+			if g := &u.Grants[j]; likeMatch(g.DB, db) {
+				direct = append(direct, Access{User: u, Grant: g})
+				found = true
+			}
+		}
+		if !found && u.Admin() {
+			global = append(global, Access{User: u})
+		}
+	}
+	return direct, global
+}
+
+// UsersByDB arma, para cada base, la lista de cuentas con un GRANT sobre ella.
+func UsersByDB(users []DBUser, dbs []string) map[string][]string {
+	out := map[string][]string{}
+	for _, db := range dbs {
+		direct, _ := AccessTo(users, db)
+		seen := map[string]bool{}
+		for _, a := range direct {
+			if !seen[a.User.User] {
+				seen[a.User.User] = true
+				out[db] = append(out[db], a.User.User)
+			}
+		}
+	}
+	return out
+}
+
+// likeMatch compara un nombre de base con el patrón de mysql.db (% y _ comodines, \ escapa).
+func likeMatch(pattern, s string) bool {
+	if pattern == "" {
+		return s == ""
+	}
+	switch c := pattern[0]; {
+	case c == '%':
+		for i := 0; i <= len(s); i++ {
+			if likeMatch(pattern[1:], s[i:]) {
+				return true
+			}
+		}
+		return false
+	case c == '\\' && len(pattern) > 1:
+		return s != "" && s[0] == pattern[1] && likeMatch(pattern[2:], s[1:])
+	case s == "":
+		return false
+	case c == '_':
+		return likeMatch(pattern[1:], s[1:])
+	default:
+		return c == s[0] && likeMatch(pattern[1:], s[1:])
+	}
+}

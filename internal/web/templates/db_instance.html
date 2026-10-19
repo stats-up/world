@@ -18,7 +18,7 @@
 <section class="card flush">
   <div class="table-wrap"><table class="table sortable sizes" id="dbs">
     <thead><tr><th data-sort="text" aria-sort="ascending">Base</th><th data-sort="num" class="num">Tablas</th><th data-sort="num" class="num hide-sm">Vistas</th>
-      <th data-sort="num" class="num hide-sm">Registros ≈</th><th data-sort="num" class="num">Espacio</th><th class="hide-sm">Intercalación</th></tr></thead>
+      <th data-sort="num" class="num hide-sm">Registros ≈</th><th data-sort="num" class="num">Espacio</th><th>Usuarios</th><th class="hide-sm">Intercalación</th></tr></thead>
     <tbody>
     {{range .Databases}}
       <tr data-href="/databases/x/{{$.Inst.Key}}/{{.Name}}" data-kind="{{if .System}}system{{else}}user{{end}}"{{if .System}} hidden{{end}}>
@@ -27,6 +27,7 @@
         <td class="num hide-sm" data-v="{{.Views}}">{{.Views}}</td>
         <td class="num hide-sm" data-v="{{.Rows}}">{{num .Rows}}</td>
         <td class="num" data-v="{{.Bytes}}"><strong>{{size .Bytes}}</strong></td>
+        <td class="small">{{if and (not .System) $.UsersOK}}{{with index $.DBUsers .Name}}{{range $i, $u := .}}{{if $i}}, {{end}}<code>{{$u}}</code>{{end}}{{else}}<span class="muted">solo administrador</span>{{end}}{{end}}</td>
         <td class="small hide-sm">{{.Collation}}</td>
       </tr>
     {{end}}
