@@ -24,7 +24,21 @@ const (
 	Image         = "traefik:v3.6"
 	CertResolver  = "le"
 	hashLabel     = "world.config-hash"
+
+	// HSTSMiddleware se aplica a todo lo que entra por HTTPS (sitios, alias que redirigen, webmail y
+	// panel), así que los sitios nuevos lo traen sin configurar nada.
+	HSTSMiddleware = "world-hsts"
 )
+
+// hstsConfig: 1 año, sin includeSubDomains (obligaría a HTTPS a subdominios que no están en world)
+// ni preload (salir de la lista de los navegadores toma meses).
+const hstsConfig = `# Generado por world: no editar a mano.
+http:
+  middlewares:
+    ` + HSTSMiddleware + `:
+      headers:
+        stsSeconds: 31536000
+`
 
 type Manager struct {
 	dc  *docker.Client
@@ -54,6 +68,10 @@ func (m *Manager) Ensure(ctx context.Context, acmeEmail, panelDomain string) err
 	if err := m.writePanelRoute(dynDir, panelDomain); err != nil {
 		return err
 	}
+	// Antes de (re)crear Traefik: si el middleware no existiera, los routers que lo usan fallarían.
+	if err := os.WriteFile(filepath.Join(dynDir, "hsts.yml"), []byte(hstsConfig), 0o644); err != nil {
+		return err
+	}
 
 	args := []string{
 		"--providers.docker=true",
@@ -63,6 +81,7 @@ func (m *Manager) Ensure(ctx context.Context, acmeEmail, panelDomain string) err
 		"--providers.file.watch=true",
 		"--entrypoints.web.address=:80",
 		"--entrypoints.websecure.address=:443",
+		"--entrypoints.websecure.http.middlewares=" + HSTSMiddleware + "@file",
 		"--entrypoints.web.http.redirections.entrypoint.to=websecure",
 		"--entrypoints.web.http.redirections.entrypoint.scheme=https",
 		"--certificatesresolvers." + CertResolver + ".acme.storage=/letsencrypt/acme.json",
