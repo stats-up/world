@@ -8,7 +8,6 @@ import (
 	"html/template"
 	"io/fs"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -259,7 +258,7 @@ func (s *Server) Handler() http.Handler {
 	priv("POST /profile/2fa/enable", s.mfaEnable)
 	priv("POST /profile/2fa/disable", s.mfaDisable)
 
-	return securityHeaders(mux)
+	return sourceGuard(&trustedProxy{lookup: s.traefikIPs}, securityHeaders(mux))
 }
 
 // --- Contexto de la request ---
@@ -401,21 +400,6 @@ func (s *Server) popFlash(w http.ResponseWriter, r *http.Request) *flash {
 
 func isHTTPS(r *http.Request) bool {
 	return r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
-}
-
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	// Detrás de Traefik la conexión viene de una IP privada: usar la IP real que reenvía.
-	if ip := net.ParseIP(host); ip != nil && (ip.IsPrivate() || ip.IsLoopback()) {
-		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			parts := strings.Split(xff, ",")
-			return strings.TrimSpace(parts[len(parts)-1])
-		}
-	}
-	return host
 }
 
 func securityHeaders(next http.Handler) http.Handler {
