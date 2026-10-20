@@ -83,7 +83,7 @@ func (e *Engine) renameSwitch(ctx context.Context, lg *logger, site *store.Site,
 	lg.Step("Deteniendo " + oldName + " para copiar sus datos")
 	for _, c := range olds {
 		if c.State == "running" {
-			if err := e.dc.ContainerStop(ctx, c.ID, 15*time.Second); err != nil {
+			if err := e.dc.ContainerStop(ctx, c.ID, site.StopWait()); err != nil {
 				undo()
 				return nil, err
 			}

@@ -50,6 +50,35 @@ type Site struct {
 	LastCronExit   int
 	LastCronMS     int64
 	LastCronOutput string
+
+	// DeployMode: cómo se reemplaza el contenedor (DeployRolling o DeployRecreate).
+	DeployMode string
+	// StopTimeout: segundos que se espera a que el contenedor cierre al detenerlo (0 = por defecto).
+	StopTimeout int
+}
+
+const (
+	// DeployRolling: el contenedor nuevo arranca junto al anterior y lo reemplaza cuando está sano (sin corte).
+	DeployRolling = "rolling"
+	// DeployRecreate: nunca corren dos a la vez. Se construye la imagen, se espera a que el cron termine,
+	// se detiene el anterior y recién entonces arranca el nuevo (corte breve). Para servicios que no
+	// admiten dos instancias: colas, sesiones de WhatsApp, bots, workers.
+	DeployRecreate = "recreate"
+
+	DefaultStopTimeout = 15
+	MaxStopTimeout     = 300
+)
+
+func (s *Site) StopSecs() int { return int(s.StopWait().Seconds()) }
+
+func (s *Site) Recreate() bool { return s.DeployMode == DeployRecreate }
+
+// StopWait es cuánto se espera a que el contenedor cierre antes de forzarlo.
+func (s *Site) StopWait() time.Duration {
+	if s.StopTimeout <= 0 {
+		return DefaultStopTimeout * time.Second
+	}
+	return time.Duration(min(s.StopTimeout, MaxStopTimeout)) * time.Second
 }
 
 // PrimaryDomain es el primer dominio de la lista (el principal).
@@ -88,7 +117,8 @@ func (s *Site) InternalPort() int {
 const siteCols = `id, name, repo_url, branch, kind, php_version, php_extensions, build_assets, autorun, port,
 	domains, env_enc, deploy_key_pub, deploy_key_enc, memory_mb, cpus, current_image, created_at,
 	auto_deploy, last_check_at, last_remote_sha, last_check_error,
-	persist_paths, redirect_aliases, cron_command, last_cron_at, last_cron_exit, last_cron_ms, last_cron_output`
+	persist_paths, redirect_aliases, cron_command, last_cron_at, last_cron_exit, last_cron_ms, last_cron_output,
+	deploy_mode, stop_timeout`
 
 func scanSite(row interface{ Scan(...any) error }) (*Site, error) {
 	var s Site
@@ -99,7 +129,8 @@ func scanSite(row interface{ Scan(...any) error }) (*Site, error) {
 		&assets, &autorun, &s.Port, &domains, &s.EnvEnc, &s.DeployKeyPub, &s.DeployKeyEnc,
 		&s.MemoryMB, &s.CPUs, &s.CurrentImage, &created,
 		&auto, &checked, &s.LastRemoteSHA, &s.LastCheckError,
-		&persist, &redirect, &s.CronCommand, &cronAt, &s.LastCronExit, &s.LastCronMS, &s.LastCronOutput)
+		&persist, &redirect, &s.CronCommand, &cronAt, &s.LastCronExit, &s.LastCronMS, &s.LastCronOutput,
+		&s.DeployMode, &s.StopTimeout)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -143,12 +174,13 @@ func (s *Store) Site(id int64) (*Site, error) {
 func (s *Store) CreateSite(site *Site) (int64, error) {
 	res, err := s.db.Exec(`INSERT INTO sites (name, repo_url, branch, kind, php_version, php_extensions,
 		build_assets, autorun, port, domains, env_enc, deploy_key_pub, deploy_key_enc, memory_mb, cpus, created_at, auto_deploy,
-		persist_paths, redirect_aliases, cron_command)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		persist_paths, redirect_aliases, cron_command, deploy_mode, stop_timeout)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		site.Name, site.RepoURL, site.Branch, site.Kind, site.PHPVersion, site.PHPExtensions,
 		boolInt(site.BuildAssets), boolInt(site.Autorun), site.Port, strings.Join(site.Domains, "\n"),
 		site.EnvEnc, site.DeployKeyPub, site.DeployKeyEnc, site.MemoryMB, site.CPUs, time.Now().Unix(),
-		boolInt(site.AutoDeploy), strings.Join(site.PersistPaths, "\n"), boolInt(site.RedirectAliases), site.CronCommand)
+		boolInt(site.AutoDeploy), strings.Join(site.PersistPaths, "\n"), boolInt(site.RedirectAliases), site.CronCommand,
+		deployMode(site.DeployMode), site.StopTimeout)
 	if err != nil {
 		return 0, err
 	}
@@ -159,13 +191,21 @@ func (s *Store) CreateSite(site *Site) (int64, error) {
 func (s *Store) UpdateSite(site *Site) error {
 	_, err := s.db.Exec(`UPDATE sites SET repo_url = ?, branch = ?, kind = ?, php_version = ?, php_extensions = ?,
 		build_assets = ?, autorun = ?, port = ?, domains = ?, env_enc = ?, memory_mb = ?, cpus = ?, auto_deploy = ?,
-		persist_paths = ?, redirect_aliases = ?, cron_command = ?
+		persist_paths = ?, redirect_aliases = ?, cron_command = ?, deploy_mode = ?, stop_timeout = ?
 		WHERE id = ?`,
 		site.RepoURL, site.Branch, site.Kind, site.PHPVersion, site.PHPExtensions,
 		boolInt(site.BuildAssets), boolInt(site.Autorun), site.Port, strings.Join(site.Domains, "\n"),
 		site.EnvEnc, site.MemoryMB, site.CPUs, boolInt(site.AutoDeploy),
-		strings.Join(site.PersistPaths, "\n"), boolInt(site.RedirectAliases), site.CronCommand, site.ID)
+		strings.Join(site.PersistPaths, "\n"), boolInt(site.RedirectAliases), site.CronCommand,
+		deployMode(site.DeployMode), site.StopTimeout, site.ID)
 	return err
+}
+
+func deployMode(m string) string {
+	if m == DeployRecreate {
+		return m
+	}
+	return DeployRolling
 }
 
 // SiteNameTaken indica si ya hay un sitio con ese nombre.

@@ -215,6 +215,10 @@ var migrations = []string{
 		pass_enc   BLOB    NOT NULL,
 		created_at INTEGER NOT NULL
 	);`,
+
+	// 11: cómo se reemplaza el contenedor en un deploy y cuánto se espera al detenerlo.
+	`ALTER TABLE sites ADD COLUMN deploy_mode TEXT NOT NULL DEFAULT 'rolling';
+	ALTER TABLE sites ADD COLUMN stop_timeout INTEGER NOT NULL DEFAULT 0;`,
 }
 
 func (s *Store) migrate() error {

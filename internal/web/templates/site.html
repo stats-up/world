@@ -39,6 +39,7 @@
         {{if not .Site.LastCheckAt.IsZero}}<span class="muted small">revisado {{ago .Site.LastCheckAt}}{{with .Site.LastRemoteSHA}} · último commit <code>{{short .}}</code>{{end}}</span>{{else}}<span class="muted small">esperando el primer chequeo</span>{{end}}
         {{with .Site.LastCheckError}}<div class="flash error small">{{.}}</div>{{end}}
         {{else}}<span class="muted">desactivado (deploy manual)</span>{{end}}</dd>
+      <dt>Deploy</dt><dd>{{if .Site.Recreate}}Detener y recrear <span class="muted small">(nunca corren dos a la vez; espera {{.Site.StopSecs}} s al detener)</span>{{else}}Sin corte{{if .Site.StopTimeout}} <span class="muted small">(espera {{.Site.StopSecs}} s al detener)</span>{{end}}{{end}}</dd>
       <dt>Recursos</dt><dd>{{if .Site.MemoryMB}}{{.Site.MemoryMB}} MB{{else}}RAM sin límite{{end}} · {{if .Site.CPUs}}{{.Site.CPUs}} CPU{{else}}CPU sin límite{{end}}</dd>
       {{with .Container}}<dt>Contenedor</dt><dd><code>{{index .Names 0}}</code> <span class="muted small">{{.Status}}</span></dd>{{end}}
     </dl>

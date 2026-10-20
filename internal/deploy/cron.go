@@ -3,6 +3,7 @@ package deploy
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"strconv"
 	"sync"
@@ -21,6 +22,7 @@ type Cron struct {
 
 	mu      sync.Mutex
 	running map[int64]bool // sin solapamiento: si la anterior no terminó, se salta el minuto
+	held    map[int64]bool // sitios en un deploy "recreate": el cron no se ejecuta mientras tanto
 	started time.Time
 	lastRun time.Time
 	lastErr string
@@ -30,7 +32,44 @@ type Cron struct {
 const cronOutputMax = 4000
 
 func NewCron(engine *Engine, st *store.Store, interval time.Duration) *Cron {
-	return &Cron{engine: engine, st: st, Interval: interval, Timeout: 15 * time.Minute, running: map[int64]bool{}}
+	c := &Cron{engine: engine, st: st, Interval: interval, Timeout: 15 * time.Minute,
+		running: map[int64]bool{}, held: map[int64]bool{}}
+	engine.cron = c
+	return c
+}
+
+// hold pausa el cron del sitio y espera a que termine la ejecución en curso (como máximo wait).
+// Devuelve la función que lo reanuda; si la ejecución no termina a tiempo, el cron se reanuda y
+// se devuelve un error. running indica si había que esperar.
+func (c *Cron) hold(ctx context.Context, siteID int64, wait time.Duration) (release func(), waited bool, err error) {
+	c.mu.Lock()
+	c.held[siteID] = true
+	c.mu.Unlock()
+	release = func() {
+		c.mu.Lock()
+		delete(c.held, siteID)
+		c.mu.Unlock()
+	}
+	deadline := time.Now().Add(wait)
+	for {
+		c.mu.Lock()
+		busy := c.running[siteID]
+		c.mu.Unlock()
+		if !busy {
+			return release, waited, nil
+		}
+		waited = true
+		if time.Now().After(deadline) {
+			release()
+			return nil, true, fmt.Errorf("el cron del sitio sigue en ejecución después de %s", wait)
+		}
+		select {
+		case <-ctx.Done():
+			release()
+			return nil, true, ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
 }
 
 // Run espera al inicio del próximo minuto (schedule:run evalúa las tareas del minuto en curso)
@@ -89,7 +128,7 @@ func (c *Cron) tick(ctx context.Context) {
 			continue
 		}
 		c.mu.Lock()
-		busy := c.running[site.ID]
+		busy := c.running[site.ID] || c.held[site.ID]
 		if !busy {
 			c.running[site.ID] = true
 		}

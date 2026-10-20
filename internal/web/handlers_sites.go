@@ -193,6 +193,14 @@ func (s *Server) readSiteForm(r *http.Request, site *store.Site) (string, []stri
 	if site.MemoryMB < 0 || (site.MemoryMB > 0 && site.MemoryMB < 64) {
 		errs = append(errs, "El límite de memoria debe ser 0 (sin límite) o al menos 64 MB.")
 	}
+	site.DeployMode = store.DeployRolling
+	if r.FormValue("deploy_mode") == store.DeployRecreate {
+		site.DeployMode = store.DeployRecreate
+	}
+	site.StopTimeout, _ = strconv.Atoi(strings.TrimSpace(r.FormValue("stop_timeout")))
+	if site.StopTimeout < 0 || site.StopTimeout > store.MaxStopTimeout {
+		errs = append(errs, fmt.Sprintf("La espera al detener debe estar entre 0 y %d segundos.", store.MaxStopTimeout))
+	}
 	site.CPUs, _ = strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(r.FormValue("cpus")), ",", "."), 64)
 	if site.CPUs < 0 || site.CPUs > 64 {
 		errs = append(errs, "Límite de CPU inválido.")

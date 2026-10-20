@@ -87,6 +87,17 @@
     </div>
   </fieldset></div>
 
+  <div class="section"><div class="section-head"><h3>Deploy</h3><p>Cómo se reemplaza el contenedor cuando sale una versión nueva.</p></div>
+  <fieldset>
+    <label class="check"><input type="radio" name="deploy_mode" value="rolling"{{if not .Site.Recreate}} checked{{end}}>
+      <span><strong>Sin corte</strong> (recomendado para sitios web)<br><small>El contenedor nuevo arranca junto al actual y lo reemplaza cuando está sano. Durante unos segundos corren los dos.</small></span></label>
+    <label class="check"><input type="radio" name="deploy_mode" value="recreate"{{if .Site.Recreate}} checked{{end}}>
+      <span><strong>Detener y recrear</strong> (nunca corren dos a la vez)<br><small>Se construye la imagen, se espera a que termine el cron, se detiene el contenedor actual y recién entonces arranca el nuevo. Corte breve. Para colas, bots o sesiones de WhatsApp. Si el nuevo falla, vuelve el anterior.</small></span></label>
+    <div class="cols">
+      <label>Espera al detener (segundos) <input name="stop_timeout" type="number" min="0" max="300" value="{{.Site.StopTimeout}}"><small>Tiempo para cerrar ordenadamente antes de forzarlo. 0 = 15 s. Ej: 60 para Chromium.</small></label>
+    </div>
+  </fieldset></div>
+
   <div class="form-foot">
     <a class="button ghost" href="{{if .New}}/{{else}}/sites/{{.Site.ID}}{{end}}">Cancelar</a>
     <button type="submit" class="primary">{{if .New}}{{icon "plus"}} Crear sitio{{else}}{{icon "check"}} Guardar cambios{{end}}</button>

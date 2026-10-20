@@ -39,7 +39,12 @@ type Engine struct {
 
 	mu   sync.Mutex
 	busy map[int64]bool
+
+	cron *Cron // lo asigna NewCron; nil si no hay cron (tests)
 }
+
+// cronWait: cuánto espera un deploy "recreate" a que termine el cron en curso del sitio.
+const cronWait = 5 * time.Minute
 
 func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box) *Engine {
 	return &Engine{cfg: cfg, st: st, dc: dc, box: box, busy: map[int64]bool{}}
@@ -173,6 +178,14 @@ func (e *Engine) deploy(ctx context.Context, lg *logger, deployID, siteID int64,
 			return sha, err
 		}
 	}
+	if rename == "" && site.Recreate() {
+		release, err := e.recreateStop(ctx, lg, site)
+		if err != nil {
+			return sha, err
+		}
+		defer release.resume()
+		undo = release.restart
+	}
 	lg.Step("Iniciando contenedor")
 	name := fmt.Sprintf("world-%s-%d", site.Name, deployID)
 	id, err := e.dc.ContainerCreate(ctx, name, containerConfig(site, image, env, deployID))
@@ -213,7 +226,7 @@ func (e *Engine) deploy(ctx context.Context, lg *logger, deployID, siteID int64,
 		if c.ID == id {
 			continue
 		}
-		e.dc.ContainerStop(ctx, c.ID, 15*time.Second)
+		e.dc.ContainerStop(ctx, c.ID, site.StopWait())
 		if err := e.dc.ContainerRemove(ctx, c.ID); err != nil {
 			lg.Printf("No se pudo eliminar %s: %v", c.ID[:12], err)
 			continue
@@ -485,9 +498,9 @@ func (e *Engine) Control(ctx context.Context, site *store.Site, action string) e
 		case "start":
 			err = e.dc.ContainerStart(ctx, c.ID)
 		case "stop":
-			err = e.dc.ContainerStop(ctx, c.ID, 15*time.Second)
+			err = e.dc.ContainerStop(ctx, c.ID, site.StopWait())
 		case "restart":
-			err = e.dc.ContainerRestart(ctx, c.ID, 15*time.Second)
+			err = e.dc.ContainerRestart(ctx, c.ID, site.StopWait())
 		default:
 			return fmt.Errorf("acción desconocida: %s", action)
 		}
