@@ -15,7 +15,7 @@ import (
 // (resumen y monitoreo). Se calcula al abrir la página con lo que world ya sabe.
 
 type problem struct {
-	Level    string // err | warn
+	Level    string // err | warn | low (baja prioridad: ej. restos de pruebas que se dejan a propósito)
 	Area     string // sitio o servicio
 	Title    string
 	Detail   string
@@ -24,6 +24,23 @@ type problem struct {
 }
 
 func (p problem) Err() bool { return p.Level == "err" }
+func (p problem) Low() bool { return p.Level == "low" }
+
+func (p problem) rank() int {
+	switch p.Level {
+	case "err":
+		return 0
+	case "low":
+		return 2
+	}
+	return 1
+}
+
+// testSite: nombres que usan las pruebas de integración de world (ittest, ittest2, rntest-a…). Sus
+// contenedores pueden quedar a propósito para seguir probando: se reportan con baja prioridad.
+func testSite(name string) bool {
+	return strings.HasPrefix(name, "ittest") || strings.HasPrefix(name, "rntest-")
+}
 
 // problemInput es lo que se revisa; se separa de cómo se obtiene para poder probarlo.
 type problemInput struct {
@@ -154,7 +171,9 @@ func buildProblems(in problemInput) []problem {
 	}
 	// Contenedores de sitios que ya no existen en world (ej: restos de pruebas).
 	for name, c := range containers {
-		if !names[name] {
+		if !names[name] && testSite(name) {
+			add("low", name, "Contenedor de pruebas sin sitio en world", strings.Join(c.Names, ", ")+" ("+c.State+") quedó de las pruebas de world y se deja para seguir probando. Bórralo cuando ya no se use.", "", "")
+		} else if !names[name] {
 			add("warn", name, "Contenedor sin sitio en world", strings.Join(c.Names, ", ")+" ("+c.State+") no corresponde a ningún sitio: revísalo y bórralo si sobra.", "", "")
 		}
 	}
@@ -168,7 +187,7 @@ func buildProblems(in problemInput) []problem {
 		}
 	}
 
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Err() && !out[j].Err() })
+	sort.SliceStable(out, func(i, j int) bool { return out[i].rank() < out[j].rank() })
 	return out
 }
 

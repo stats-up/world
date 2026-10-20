@@ -33,6 +33,7 @@ func TestBuildProblems(t *testing.T) {
 			"tienda":  {State: "running", Status: "Up 2 hours (healthy)"},
 			"webmail": {State: "running", Status: "Up 2 days"},
 			"ittest":  {State: "running", Names: []string{"/world-ittest-2"}},
+			"viejo":   {State: "exited", Names: []string{"/world-viejo-3"}},
 		},
 	}
 	got := buildProblems(in)
@@ -49,11 +50,15 @@ func TestBuildProblems(t *testing.T) {
 		"warn tienda: 2 proceso(s) terminados por falta de memoria",
 		"warn tienda: Usa el 92 % de su límite de RAM",
 		"warn nuevo: Nunca se ha desplegado",
-		"warn ittest: Contenedor sin sitio en world | /world-ittest-2",
+		"low ittest: Contenedor de pruebas sin sitio en world | /world-ittest-2",
+		"warn viejo: Contenedor sin sitio en world | /world-viejo-3",
 	} {
 		if !strings.Contains(all, want) {
 			t.Errorf("falta %q en:\n%s", want, all)
 		}
+	}
+	if last := got[len(got)-1]; !last.Low() {
+		t.Errorf("los de baja prioridad van al final, el último es %+v", last)
 	}
 	if strings.Contains(all, "CPU") || strings.Contains(all, "deployando") || strings.Contains(all, "Traefik") || strings.Contains(all, "world:") {
 		t.Errorf("sobran problemas:\n%s", all)

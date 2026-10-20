@@ -5,7 +5,7 @@
   <ul class="problem-list">
     {{range .Problems}}
     <li class="problem {{.Level}}">
-      <span class="badge {{if .Err}}err{{else}}warn{{end}}">{{if .Err}}falla{{else}}atención{{end}}</span>
+      <span class="badge {{if .Err}}err{{else if .Low}}{{else}}warn{{end}}">{{if .Err}}falla{{else if .Low}}baja prioridad{{else}}atención{{end}}</span>
       <div><strong>{{.Area}}</strong> · {{.Title}}{{with .Detail}}<br><span class="muted small">{{.}}</span>{{end}}</div>
       {{if .Link}}<a class="button sm ghost" href="{{.Link}}">{{.LinkText}}</a>{{end}}
     </li>

@@ -471,6 +471,7 @@ details.card[open] > summary { margin-bottom: .75rem; }
 .problem > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .problem .badge { flex-shrink: 0; margin-top: .1rem; }
 .problem .button { flex-shrink: 0; }
+.problem.low { opacity: .75; }
 .problems.card { border-color: color-mix(in srgb, var(--err) 30%, var(--border)); }
 
 /* Usuarios de bases de datos */
