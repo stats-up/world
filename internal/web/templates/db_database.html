@@ -4,7 +4,7 @@
 <div class="page-head"><div class="page-title"><span class="avatar">{{icon "database"}}</span><div>
   <h1><code>{{.DB}}</code></h1>
   <p class="sub">{{.Count}} tablas · {{.Views}} vistas · ≈ {{num .Rows}} registros · {{size .Total}}</p></div></div>
-  <div class="actions"><a class="button" href="#usuarios">{{icon "user"}} Usuarios con acceso{{with .Access}} <span class="badge">{{len .}}</span>{{end}}</a></div></div>
+  <div class="actions"><a class="button" href="/databases/sql/{{.Inst.Key}}?db={{.DB}}">{{icon "file"}} Ejecutar SQL</a><a class="button" href="#usuarios">{{icon "user"}} Usuarios con acceso{{with .Access}} <span class="badge">{{len .}}</span>{{end}}</a></div></div>
 
 {{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
 {{if .Tables}}

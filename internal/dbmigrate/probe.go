@@ -47,11 +47,14 @@ func systemDB(name string) bool {
 // quoteIdent pone un identificador entre comillas invertidas.
 func quoteIdent(s string) string { return "`" + strings.ReplaceAll(s, "`", "``") + "`" }
 
-func open(ctx context.Context, c Conn) (*sql.DB, error) {
+func open(ctx context.Context, c Conn) (*sql.DB, error) { return openTimeout(ctx, c, 60*time.Second) }
+
+// openTimeout: rw es cuánto se espera la respuesta de una sentencia (los scripts pueden tardar).
+func openTimeout(ctx context.Context, c Conn, rw time.Duration) (*sql.DB, error) {
 	cfg := mysql.NewConfig()
 	cfg.User, cfg.Passwd, cfg.DBName = c.User, c.Password, c.Database
 	cfg.Net, cfg.Addr = "tcp", net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
-	cfg.Timeout, cfg.ReadTimeout, cfg.WriteTimeout = 10*time.Second, 60*time.Second, 60*time.Second
+	cfg.Timeout, cfg.ReadTimeout, cfg.WriteTimeout = 10*time.Second, rw, rw
 	cfg.TLSConfig = "preferred"
 	cfg.AllowNativePasswords = true
 	cfg.AllowCleartextPasswords = false

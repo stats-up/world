@@ -1,6 +1,7 @@
 {{define "db_inst_tabs"}}
 <nav class="tabs page-tabs">
-  <a href="/databases/x/{{.Inst.Key}}"{{if ne .Tab "usuarios"}} class="active" aria-current="page"{{end}}>{{icon "database"}} Bases</a>
+  <a href="/databases/x/{{.Inst.Key}}"{{if not .Tab}} class="active" aria-current="page"{{end}}>{{icon "database"}} Bases</a>
   <a href="/databases/users/{{.Inst.Key}}"{{if eq .Tab "usuarios"}} class="active" aria-current="page"{{end}}>{{icon "user"}} Usuarios</a>
+  <a href="/databases/sql/{{.Inst.Key}}"{{if eq .Tab "sql"}} class="active" aria-current="page"{{end}}>{{icon "file"}} SQL</a>
 </nav>
 {{end}}

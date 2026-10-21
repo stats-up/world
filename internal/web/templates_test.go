@@ -287,3 +287,38 @@ func TestSiteFormPHPVersions(t *testing.T) {
 		}
 	}
 }
+
+func TestSQLPageRenders(t *testing.T) {
+	s := &Server{pages: map[string]*template.Template{}}
+	if err := s.parseTemplates(); err != nil {
+		t.Fatal(err)
+	}
+	stmts, _ := dbmigrate.SplitScript("SELECT 1;\nUPDATE t SET a = 1;\nDROP TABLE x;")
+	plan := dbmigrate.Plan(stmts)
+	inst := &dbInstanceView{Key: "main", Name: "MainDB", User: "dbmasteruser"}
+	run := &dbmigrate.ScriptRun{RolledBack: true, Skipped: 1, Results: []dbmigrate.StatementResult{
+		{Statement: stmts[0], HasRows: true, Columns: []string{"1"}, Rows: [][]dbmigrate.Cell{{{Text: "1"}}}, Total: 1, Sets: 1},
+		{Statement: stmts[1], Err: "Error 1146 (42S02): Table 'tienda.t' doesn't exist"}}}
+	for name, d := range map[string]data{
+		"editor": {"Inst": inst, "Tab": "sql", "DBs": []string{"tienda"}, "SelDB": "tienda", "Tx": true, "RowsLimit": 500},
+		"review": {"Inst": inst, "Tab": "sql", "SelDB": "tienda", "Tx": true, "Plan": plan, "Review": true, "Script": "SELECT 1;\nUPDATE t SET a = 1;\nDROP TABLE x;"},
+		"run":    {"Inst": inst, "Tab": "sql", "SelDB": "tienda", "Tx": true, "Plan": plan, "Run": run},
+	} {
+		d["CSRF"] = "tok"
+		var out strings.Builder
+		if err := s.pages["db_sql"].ExecuteTemplate(&out, "layout", d); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		html := out.String()
+		want := map[string][]string{
+			"editor": {`enctype="multipart/form-data"`, `<option selected>tienda</option>`, `name="tx" value="1" checked`, `class="active" aria-current="page"`},
+			"review": {"Revisa antes de ejecutar", "1 UPDATE, 1 DROP TABLE", "línea 3: DROP TABLE", `name="confirmed" value="1"`, "data-confirm=", "UPDATE t SET a = 1;"},
+			"run":    {"Se detuvo en la sentencia de la línea 2", "Se deshizo la transacción", "doesn&#39;t exist", "1 sin ejecutar", "<th>1</th>"},
+		}[name]
+		for _, w := range want {
+			if !strings.Contains(html, w) {
+				t.Errorf("%s: falta %q", name, w)
+			}
+		}
+	}
+}

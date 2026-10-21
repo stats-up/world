@@ -211,6 +211,8 @@ func (s *Server) Handler() http.Handler {
 	priv("POST /databases/instances/{id}/delete", s.dbInstanceDelete)
 	priv("GET /databases/x/{inst}", s.dbExploreInstance)
 	priv("POST /databases/x/{inst}/databases", s.dbCreateDatabase)
+	priv("GET /databases/sql/{inst}", s.dbSQL)
+	priv("POST /databases/sql/{inst}", s.dbSQLRun)
 	priv("GET /databases/users/{inst}", s.dbUsers)
 	priv("POST /databases/users/{inst}", s.dbUserCreate)
 	priv("POST /databases/users/{inst}/grant", s.dbUserGrant)

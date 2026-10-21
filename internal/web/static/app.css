@@ -478,3 +478,10 @@ details.card[open] > summary { margin-bottom: .75rem; }
 .db-user h2 { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
 .profile-help { margin: 0; padding-left: 1.1rem; }
 code.secret { font-size: 1.05rem; padding: .4rem .6rem; user-select: all; overflow-wrap: anywhere; }
+
+/* SQL */
+.sql-list { margin: 0; padding-left: 1.5rem; max-height: 22rem; overflow: auto; display: grid; gap: .35rem; }
+.sql-list code, .sql-short { overflow-wrap: anywhere; font-size: .85em; }
+.sql-review { border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); }
+.sql-result { display: grid; gap: .5rem; padding-top: .75rem; border-top: 1px solid var(--border); }
+.sql-result.failed .sql-short { color: var(--err); }

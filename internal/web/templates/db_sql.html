@@ -1,0 +1,79 @@
+{{define "title"}}SQL · {{.Inst.Name}}{{end}}
+{{define "content"}}
+<nav class="crumbs"><a href="/databases">Bases de datos</a>{{icon "chevron"}}<a href="/databases/x/{{.Inst.Key}}">{{.Inst.Name}}</a>{{icon "chevron"}}<span>SQL</span></nav>
+<div class="page-head"><div class="page-title"><span class="avatar">{{icon "database"}}</span><div>
+  <h1>{{.Inst.Name}}</h1>
+  <p class="sub"><code>{{.Inst.User}}@{{.Inst.Host}}:{{.Inst.Port}}</code></p></div></div></div>
+{{template "db_inst_tabs" .}}
+
+{{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+
+{{if .Review}}{{with .Plan}}
+<section class="card stack sql-review" id="revision">
+  <h2>{{icon "alert"}} Revisa antes de ejecutar</h2>
+  <p>El script tiene <strong>{{len .Statements}} sentencia(s)</strong>; <strong>{{.Writes}}</strong> cambian datos o estructura: {{.Summary}}.
+    Se ejecuta{{if $.SelDB}} en <code>{{$.SelDB}}</code>{{else}} sin base por defecto{{end}} con el usuario <code>{{$.Inst.User}}</code>.</p>
+  {{with .Dangers}}<div class="flash error">{{icon "alert"}}<div><strong>Cuidado:</strong><ul class="plain-list">{{range .}}<li>{{.}}</li>{{end}}</ul></div></div>{{end}}
+  <ol class="sql-list">
+    {{range .Statements}}<li><span class="badge{{if .Danger}} err{{else if not .Read}} warn{{end}}">{{.Kind}}</span> <span class="muted small">línea {{.Line}}</span> <code>{{.Short}}</code></li>{{end}}
+  </ol>
+  <p class="muted small">{{if $.Tx}}Se ejecuta en una transacción: si una sentencia falla se deshace todo, salvo CREATE, ALTER, DROP, TRUNCATE y RENAME, que MySQL confirma al instante.{{else}}Sin transacción: cada sentencia queda aplicada apenas se ejecuta; si una falla, las anteriores ya quedaron hechas.{{end}}</p>
+  <form method="post" action="/databases/sql/{{$.Inst.Key}}" class="actions"
+        data-confirm="¿Ejecutar {{len .Statements}} sentencia(s) en {{if $.SelDB}}{{$.SelDB}}{{else}}{{$.Inst.Name}}{{end}}?"
+        data-confirm-text="{{.Writes}} cambian datos o estructura ({{.Summary}}).{{if .Dangers}} Incluye {{len .Dangers}} operación(es) que borran o reemplazan en bloque.{{end}} {{if $.Tx}}Lo que no sea estructura se puede deshacer solo si algo falla.{{else}}No se puede deshacer.{{end}}"
+        data-confirm-button="Sí, ejecutar">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="db" value="{{$.SelDB}}">
+    <input type="hidden" name="tx" value="{{if $.Tx}}1{{end}}"><input type="hidden" name="confirmed" value="1">
+    <textarea name="sql" hidden>{{$.Script}}</textarea>
+    <a class="button ghost" href="#editor">Seguir editando</a>
+    <button type="submit" class="danger">{{icon "check"}} Ejecutar</button>
+  </form>
+</section>
+{{end}}{{end}}
+
+{{with .Run}}
+<section class="card stack" id="resultado">
+  <div class="row"><h2>Resultado</h2>
+    <span class="muted small">{{len .Results}} ejecutada(s){{if .Skipped}} · {{.Skipped}} sin ejecutar{{end}} · {{.Took}}</span></div>
+  {{if .Failed}}<div class="flash error">{{icon "alert"}}<div>Se detuvo en la sentencia de la línea {{.FailedLine}}.{{if .RolledBack}} Se deshizo la transacción: no quedó aplicado ningún cambio de datos (los cambios de estructura sí, si los hubo).{{else}} Lo anterior quedó aplicado.{{end}}</div></div>
+  {{else if .Committed}}<div class="flash ok">{{icon "check"}}<div>Listo: transacción confirmada.</div></div>
+  {{else}}<div class="flash ok">{{icon "check"}}<div>Listo.</div></div>{{end}}
+  {{range .Results}}
+  <div class="sql-result{{if .Err}} failed{{end}}">
+    <div class="row"><div><span class="badge{{if .Err}} err{{else if not .Read}} warn{{end}}">{{.Kind}}</span> <span class="muted small">línea {{.Line}} · {{.Took}}</span>
+      {{if not .Err}}<span class="muted small"> · {{if .HasRows}}{{num .Total}} fila(s){{if gt .Sets 1}} en {{.Sets}} resultados{{end}}{{else}}{{num .Affected}} fila(s) afectada(s){{if .InsertID}} · último id {{.InsertID}}{{end}}{{end}}{{if .Warnings}} · {{.Warnings}} advertencia(s){{end}}</span>{{end}}</div></div>
+    <code class="sql-short">{{.Short}}</code>
+    {{with .Err}}<pre class="log short">{{.}}</pre>{{end}}
+    {{if .Columns}}
+    <div class="table-wrap"><table class="table data-grid">
+      <thead><tr>{{range .Columns}}<th>{{.}}</th>{{end}}</tr></thead>
+      <tbody>{{range .Rows}}<tr>{{range .}}<td>{{if .Null}}<span class="cell-null">NULL</span>{{else if .Binary}}<span class="cell-null">binario · {{size .Size}}</span>{{else}}<span title="{{.Text}}">{{.Text}}</span>{{if .Cut}}<span class="cell-null">…</span>{{end}}{{end}}</td>{{end}}</tr>{{end}}</tbody>
+    </table></div>
+    {{if .More}}<p class="muted small">Se muestran las primeras {{len .Rows}} de {{num .Total}} filas.</p>{{end}}
+    {{end}}
+  </div>
+  {{end}}
+</section>
+{{end}}
+
+<section class="card stack" id="editor">
+  <h2>{{icon "file"}} Script</h2>
+  <form method="post" action="/databases/sql/{{.Inst.Key}}" enctype="multipart/form-data" class="stack">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <div class="cols">
+      <label>Base
+        <select name="db"><option value="">(ninguna: usa nombres completos o USE)</option>
+          {{range .DBs}}<option{{if eq . $.SelDB}} selected{{end}}>{{.}}</option>{{end}}</select>
+      </label>
+      <label>O sube un archivo .sql <input type="file" name="file" accept=".sql,text/plain"><small>Reemplaza lo escrito abajo. Máximo 4 MB; para respaldos grandes usa Migrar.</small></label>
+    </div>
+    <label>SQL
+      <textarea name="sql" rows="14" class="mono" spellcheck="false" placeholder="SELECT * FROM users WHERE email LIKE '%@gmail.com' LIMIT 20;&#10;UPDATE settings SET value = '1' WHERE name = 'maintenance';">{{.Script}}</textarea>
+      <small>Varias sentencias separadas por <code>;</code>. Para procedimientos y triggers usa <code>DELIMITER $$</code> como en el cliente mysql.</small>
+    </label>
+    <label class="check"><input type="checkbox" name="tx" value="1"{{if .Tx}} checked{{end}}> <span><strong>En una transacción</strong><br><small>Si una sentencia falla, se deshacen los cambios de datos de todo el script. CREATE, ALTER, DROP, TRUNCATE y RENAME no se pueden deshacer en MySQL.</small></span></label>
+    <p class="muted small">Las consultas que solo leen se ejecutan al tiro. Si el script cambia algo, primero se muestra una revisión y se pide confirmación. Se muestran hasta {{.RowsLimit}} filas por resultado; tiempo máximo 15 minutos.</p>
+    <div class="actions"><button type="submit" class="primary">{{icon "check"}} Ejecutar</button></div>
+  </form>
+</section>
+{{end}}
