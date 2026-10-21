@@ -100,26 +100,27 @@ func TestBuildProblems(t *testing.T) {
 
 func TestPHPProblems(t *testing.T) {
 	site := &store.Site{ID: 4, Name: "tienda", Kind: store.KindPHP, PHPVersion: "8.3"}
+	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
 	cases := []struct {
-		st    phpcheck.Status
-		level string
-		title string
+		st     phpcheck.Status
+		titles []string
 	}{
-		{phpcheck.Status{Branch: "8.1", Running: "8.1.34", Known: true}, "err", "PHP 8.1 ya no recibe parches de seguridad"},
-		{phpcheck.Status{Branch: "8.3", Running: "8.3.35", Latest: "8.3.36", Image: "8.3.36", Supported: true, Security: true, Known: true}, "err", "PHP 8.3.35 → 8.3.36 disponible"},
-		{phpcheck.Status{Branch: "8.3", Running: "8.3.35", Latest: "8.3.36", Image: "8.3.35", Supported: true, Security: true, Known: true}, "warn", "PHP 8.3.35 tiene una versión nueva (8.3.36) con parches de seguridad"},
+		{phpcheck.Status{Branch: "8.1", Running: "8.1.34", Known: true}, []string{"err PHP 8.1 ya no recibe parches de seguridad (desde 31-12-2025)"}},
+		// Sin datos de php.net ni del contenedor igual se sabe por la fecha.
+		{phpcheck.Status{Branch: "8.1"}, []string{"err PHP 8.1 ya no recibe parches de seguridad (desde 31-12-2025)"}},
+		{phpcheck.Status{Branch: "8.2", Running: "8.2.34", Latest: "8.2.35", Image: "8.2.34", Supported: true, Security: true, Known: true},
+			[]string{"warn PHP 8.2 deja de recibir parches el 31-12-2026 (en 71 días)", "warn PHP 8.2.34 tiene una versión nueva (8.2.35) con parches de seguridad"}},
+		{phpcheck.Status{Branch: "8.3", Running: "8.3.35", Latest: "8.3.36", Image: "8.3.36", Supported: true, Security: true, Known: true}, []string{"err PHP 8.3.35 → 8.3.36 disponible"}},
+		{phpcheck.Status{Branch: "8.3", Running: "8.3.36", Latest: "8.3.36", Image: "8.3.36", Supported: true, Known: true}, nil},
+		{phpcheck.Status{Branch: "8.5"}, nil},
 	}
 	for _, c := range cases {
-		p, ok := phpProblem(site, c.st, "/sites/4")
-		if !ok || p.Level != c.level || p.Title != c.title {
-			t.Errorf("%+v → %+v", c.st, p)
+		var got []string
+		for _, p := range phpProblems(site, c.st, now) {
+			got = append(got, p.Level+" "+p.Title)
 		}
-	}
-	if _, ok := phpProblem(site, phpcheck.Status{Branch: "8.3", Running: "8.3.36", Latest: "8.3.36", Image: "8.3.36", Supported: true, Known: true}, ""); ok {
-		t.Error("al día: sin aviso")
-	}
-	// Sin la lista de php.net no se puede afirmar que la rama no tiene soporte.
-	if _, ok := phpProblem(site, phpcheck.Status{Branch: "8.1", Running: "8.1.34"}, ""); ok {
-		t.Error("sin datos de php.net: sin aviso")
+		if strings.Join(got, "|") != strings.Join(c.titles, "|") {
+			t.Errorf("%+v: got %q, want %q", c.st, got, c.titles)
+		}
 	}
 }

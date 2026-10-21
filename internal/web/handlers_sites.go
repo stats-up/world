@@ -18,6 +18,7 @@ import (
 	"world/internal/deploy"
 	"world/internal/docker"
 	mailsrv "world/internal/mail"
+	"world/internal/phpcheck"
 	"world/internal/store"
 )
 
@@ -29,7 +30,7 @@ var (
 	extRe    = regexp.MustCompile(`^[a-z0-9_]+$`)
 	pathRe   = regexp.MustCompile(`^(/[A-Za-z0-9._-]+)+$`)
 
-	phpVersions = []string{"8.4", "8.3", "8.2", "8.1"}
+	phpVersions = phpcheck.Versions()
 	siteKinds   = []struct{ Value, Label string }{
 		{store.KindPHP, "PHP / Laravel"},
 		{store.KindStatic, "Estático (HTML/JS)"},
@@ -68,11 +69,11 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) siteFormData(site *store.Site, env string, errs []string, isNew bool) data {
 	return data{"Site": site, "Env": env, "Errors": errs, "New": isNew,
-		"PHPVersions": phpVersions, "Kinds": siteKinds}
+		"PHPVersions": phpcheck.Branches, "Now": time.Now(), "Kinds": siteKinds}
 }
 
 func (s *Server) siteNew(w http.ResponseWriter, r *http.Request) {
-	site := &store.Site{Branch: "main", Kind: store.KindPHP, PHPVersion: "8.3", BuildAssets: true, Port: 8080,
+	site := &store.Site{Branch: "main", Kind: store.KindPHP, PHPVersion: phpcheck.DefaultBranch, BuildAssets: true, Port: 8080,
 		RedirectAliases: true, PersistPaths: []string{laravelStorage}, CronCommand: laravelCron}
 	s.render(w, r, "site_form", s.siteFormData(site, "", nil, true))
 }
@@ -167,7 +168,7 @@ func (s *Server) readSiteForm(r *http.Request, site *store.Site) (string, []stri
 		errs = append(errs, "Tipo de sitio inválido.")
 	}
 	if !oneOf(site.PHPVersion, phpVersions...) {
-		site.PHPVersion = "8.3"
+		site.PHPVersion = phpcheck.DefaultBranch
 	}
 
 	var exts []string

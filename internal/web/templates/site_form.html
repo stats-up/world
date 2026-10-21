@@ -56,8 +56,9 @@
     <div class="cols">
       <label>Versión de PHP
         <select name="php_version">
-          {{range .PHPVersions}}<option{{if eq . $.Site.PHPVersion}} selected{{end}}>{{.}}</option>{{end}}
+          {{range .PHPVersions}}<option value="{{.Version}}"{{if eq .Version $.Site.PHPVersion}} selected{{end}}>{{.Label $.Now}}</option>{{end}}
         </select>
+        <small>Usa una versión con parches por varios años; world avisa en Problemas 4 meses antes de que la del sitio deje de recibirlos.</small>
       </label>
       <label>Extensiones PHP adicionales
         <input name="php_extensions" value="{{.Site.PHPExtensions}}" placeholder="intl gd imagick">

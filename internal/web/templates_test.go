@@ -269,3 +269,21 @@ func TestProblemsPHPButton(t *testing.T) {
 		}
 	}
 }
+
+func TestSiteFormPHPVersions(t *testing.T) {
+	s := &Server{pages: map[string]*template.Template{}}
+	if err := s.parseTemplates(); err != nil {
+		t.Fatal(err)
+	}
+	d := s.siteFormData(&store.Site{ID: 3, Kind: store.KindPHP, PHPVersion: "8.1"}, "", nil, false)
+	d["CSRF"] = "tok"
+	var out strings.Builder
+	if err := s.pages["site_form"].ExecuteTemplate(&out, "layout", d); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`<option value="8.5"`, "8.5 · parches hasta dic 2029", `<option value="8.1" selected>8.1 · sin parches desde dic 2025`, `name="deploy_mode"`} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("falta %q", want)
+		}
+	}
+}

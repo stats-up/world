@@ -53,6 +53,7 @@ type problemInput struct {
 	Containers map[string]docker.ContainerSummary
 	MailCheck  func() []problem // bloqueos de Stalwart a las direcciones del servidor
 	PHP        func(*store.Site) (phpcheck.Status, bool)
+	Now        time.Time
 }
 
 // problems junta los problemas actuales, primero los graves. containers puede venir ya consultado.
@@ -62,6 +63,7 @@ func (s *Server) problems(ctx context.Context, containers map[string]docker.Cont
 	if s.php != nil {
 		in.PHP = s.php.Site
 	}
+	in.Now = time.Now()
 	for _, site := range in.Sites {
 		if dep, err := s.st.LatestDeployment(site.ID); err == nil {
 			in.Latest[site.ID] = dep
@@ -174,19 +176,17 @@ func buildProblems(in problemInput) []problem {
 			}
 		}
 	}
-	// PHP: parches de seguridad y ramas sin soporte.
+	// PHP: parches de seguridad y ramas sin soporte (o que lo pierden pronto).
 	for _, site := range in.Sites {
-		if in.PHP == nil {
-			break
-		}
-		st, ok := in.PHP(site)
-		if !ok || containers[site.Name].State != "running" {
+		if site.Kind != store.KindPHP {
 			continue
 		}
-		link := fmt.Sprintf("/sites/%d", site.ID)
-		if p, ok := phpProblem(site, st, link); ok {
-			out = append(out, p)
+		var st phpcheck.Status
+		if in.PHP != nil && containers[site.Name].State == "running" {
+			st, _ = in.PHP(site)
 		}
+		st.Branch = site.PHPVersion
+		out = append(out, phpProblems(site, st, in.Now)...)
 	}
 
 	// Contenedores de sitios que ya no existen en world (ej: restos de pruebas).
@@ -222,25 +222,42 @@ func firstLine(s string) string {
 	return s
 }
 
-// phpProblem: aviso por la versión de PHP del sitio, si corresponde.
-func phpProblem(site *store.Site, st phpcheck.Status, link string) (problem, bool) {
+// phpProblems: avisos por la versión de PHP del sitio. st puede venir sin datos del contenedor
+// (sitio detenido o aún sin revisar): igual se avisa por la fecha de fin de soporte de la rama.
+func phpProblems(site *store.Site, st phpcheck.Status, now time.Time) []problem {
+	var out []problem
+	link, edit := fmt.Sprintf("/sites/%d", site.ID), fmt.Sprintf("/sites/%d/edit", site.ID)
+	b, known := phpcheck.BranchInfo(st.Branch)
 	switch {
-	case st.Known && !st.Supported:
-		return problem{"err", site.Name, "PHP " + st.Branch + " ya no recibe parches de seguridad",
-			"Corre PHP " + st.Running + ". Cambia la versión de PHP en Editar (8.3 o superior) y prueba el sitio: puede requerir ajustes en el código o en composer.",
-			fmt.Sprintf("/sites/%d/edit", site.ID), "Editar"}, true
+	case (known && b.EOL(now)) || (st.Known && !st.Supported):
+		detail := "Cambia la versión de PHP en Editar (8.3 o superior) y prueba el sitio: puede requerir ajustes en el código o en composer."
+		if st.Running != "" {
+			detail = "Corre PHP " + st.Running + ". " + detail
+		}
+		title := "PHP " + st.Branch + " ya no recibe parches de seguridad"
+		if known {
+			title += " (desde " + b.SecurityUntil.Format("02-01-2006") + ")"
+		}
+		return append(out, problem{"err", site.Name, title, detail, edit, "Editar"})
+	case known && b.EndingSoon(now):
+		days := int(b.SecurityUntil.Sub(now).Hours() / 24)
+		out = append(out, problem{"warn", site.Name,
+			fmt.Sprintf("PHP %s deja de recibir parches el %s (en %d días)", st.Branch, b.SecurityUntil.Format("02-01-2006"), days),
+			"Planifica el cambio a una versión más nueva: pruébala en el sitio (Editar → versión de PHP) antes de esa fecha.", edit, "Editar"})
+	}
+	switch {
 	case st.NeedsDeploy():
 		level := "warn"
 		if st.Security {
 			level = "err"
 		}
-		return problem{level, site.Name, "PHP " + st.Running + " → " + st.Image + " disponible",
-			"La imagen base ya trae la versión nueva" + secText(st) + ": haz deploy para aplicarla.", link, "Ver sitio"}, true
+		out = append(out, problem{level, site.Name, "PHP " + st.Running + " → " + st.Image + " disponible",
+			"La imagen base ya trae la versión nueva" + secText(st) + ": haz deploy para aplicarla.", link, "Ver sitio"})
 	case st.Outdated():
-		return problem{"warn", site.Name, "PHP " + st.Running + " tiene una versión nueva (" + st.Latest + ")" + secText(st),
-			"La imagen base (serversideup/php) todavía no la publica. world la revisa cada hora y te avisa aquí cuando esté lista para el deploy.", link, "Ver sitio"}, true
+		out = append(out, problem{"warn", site.Name, "PHP " + st.Running + " tiene una versión nueva (" + st.Latest + ")" + secText(st),
+			"La imagen base (serversideup/php) todavía no la publica. world la revisa cada hora y te avisa aquí cuando esté lista para el deploy.", link, "Ver sitio"})
 	}
-	return problem{}, false
+	return out
 }
 
 func secText(st phpcheck.Status) string {
