@@ -1,7 +1,16 @@
 {{define "problems"}}
 {{if .Problems}}
 <section class="card flush problems" id="problemas">
-  <div class="row"><h2>{{icon "alert"}} Problemas <span class="muted small">{{len .Problems}}</span></h2></div>
+  <div class="row"><h2>{{icon "alert"}} Problemas <span class="muted small">{{len .Problems}}</span></h2>
+    {{with .PHPUpdatable}}
+    <form method="post" action="/sites/php-update" class="inline"
+          data-confirm="¿Actualizar PHP en {{len .}} sitio(s)?"
+          data-confirm-text="Se hace un deploy de {{range $i, $s := .}}{{if $i}}, {{end}}{{$s.Name}}{{end}} con la imagen base nueva. Los sitios «sin corte» siguen atendiendo durante el deploy; los «detener y recrear» tienen un corte breve. Si un deploy falla, ese sitio sigue con la versión actual."
+          data-confirm-button="Sí, actualizar">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <button type="submit" class="sm primary">Actualizar PHP en {{len .}} sitio(s)</button>
+    </form>
+    {{end}}</div>
   <ul class="problem-list">
     {{range .Problems}}
     <li class="problem {{.Level}}">

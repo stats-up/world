@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"world/internal/phpcheck"
 
 	"world/internal/docker"
 	"world/internal/store"
@@ -94,5 +95,31 @@ func TestBuildProblems(t *testing.T) {
 	s.pages["monitor"].ExecuteTemplate(&out, "layout", data{"ProblemsAll": true, "Range": siteRanges[0], "Ranges": siteRanges, "CSRF": "t"})
 	if !strings.Contains(out.String(), "Sin problemas") {
 		t.Error("debió decir que no hay problemas")
+	}
+}
+
+func TestPHPProblems(t *testing.T) {
+	site := &store.Site{ID: 4, Name: "tienda", Kind: store.KindPHP, PHPVersion: "8.3"}
+	cases := []struct {
+		st    phpcheck.Status
+		level string
+		title string
+	}{
+		{phpcheck.Status{Branch: "8.1", Running: "8.1.34", Known: true}, "err", "PHP 8.1 ya no recibe parches de seguridad"},
+		{phpcheck.Status{Branch: "8.3", Running: "8.3.35", Latest: "8.3.36", Image: "8.3.36", Supported: true, Security: true, Known: true}, "err", "PHP 8.3.35 → 8.3.36 disponible"},
+		{phpcheck.Status{Branch: "8.3", Running: "8.3.35", Latest: "8.3.36", Image: "8.3.35", Supported: true, Security: true, Known: true}, "warn", "PHP 8.3.35 tiene una versión nueva (8.3.36) con parches de seguridad"},
+	}
+	for _, c := range cases {
+		p, ok := phpProblem(site, c.st, "/sites/4")
+		if !ok || p.Level != c.level || p.Title != c.title {
+			t.Errorf("%+v → %+v", c.st, p)
+		}
+	}
+	if _, ok := phpProblem(site, phpcheck.Status{Branch: "8.3", Running: "8.3.36", Latest: "8.3.36", Image: "8.3.36", Supported: true, Known: true}, ""); ok {
+		t.Error("al día: sin aviso")
+	}
+	// Sin la lista de php.net no se puede afirmar que la rama no tiene soporte.
+	if _, ok := phpProblem(site, phpcheck.Status{Branch: "8.1", Running: "8.1.34"}, ""); ok {
+		t.Error("sin datos de php.net: sin aviso")
 	}
 }

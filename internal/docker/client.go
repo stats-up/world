@@ -180,6 +180,7 @@ type ContainerInfo struct {
 		Image      string            `json:"Image"`
 		Labels     map[string]string `json:"Labels"`
 		WorkingDir string            `json:"WorkingDir"`
+		Env        []string          `json:"Env"`
 	} `json:"Config"`
 	NetworkSettings struct {
 		Networks map[string]struct {
@@ -416,6 +417,16 @@ type ImageSummary struct {
 func (c *Client) ImagesByReference(ctx context.Context, ref string) ([]ImageSummary, error) {
 	var out []ImageSummary
 	return out, c.call(ctx, "GET", "/images/json", filters(map[string][]string{"reference": {ref}}), nil, &out)
+}
+
+// ImageEnv devuelve las variables de ambiente que trae una imagen (ej. PHP_VERSION=8.3.36).
+func (c *Client) ImageEnv(ctx context.Context, ref string) ([]string, error) {
+	var out struct {
+		Config struct {
+			Env []string `json:"Env"`
+		} `json:"Config"`
+	}
+	return out.Config.Env, c.call(ctx, "GET", "/images/"+ref+"/json", nil, nil, &out)
 }
 
 func (c *Client) ImageRemove(ctx context.Context, ref string) error {

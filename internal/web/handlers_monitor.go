@@ -318,6 +318,7 @@ func (s *Server) monitorPage(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	cs, _ := s.engine.Containers(ctx)
 	d["Problems"] = s.problems(ctx, cs, mon, s.healthStatus(ctx))
+	d["PHPUpdatable"] = s.phpUpdatable()
 	d["ProblemsAll"] = true
 	pts, err := s.st.HostSeries(rg.Res, from)
 	if err != nil {

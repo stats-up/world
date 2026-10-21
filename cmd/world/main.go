@@ -19,6 +19,7 @@ import (
 	"world/internal/docker"
 	"world/internal/mail"
 	"world/internal/monitor"
+	"world/internal/phpcheck"
 	"world/internal/proxy"
 	"world/internal/secret"
 	"world/internal/store"
@@ -98,7 +99,9 @@ func serve(cfg config.Config) error {
 	poller := deploy.NewPoller(engine, st, time.Minute)
 	cron := deploy.NewCron(engine, st, time.Minute)
 	mon := monitor.New(dc, st)
-	srv, err := web.New(cfg, st, dc, box, engine, poller, cron, px, mx, mon, version)
+	php := phpcheck.New(dc, st.Sites)
+	engine.AfterDeploy = func(int64) { php.Refresh() }
+	srv, err := web.New(cfg, st, dc, box, engine, poller, cron, px, mx, mon, php, version)
 	if err != nil {
 		return err
 	}
@@ -115,6 +118,7 @@ func serve(cfg config.Config) error {
 	go mx.EnsureLoop(ctx, func() mail.Settings { return mail.LoadSettings(st, box) })
 	go srv.ResumeImports(ctx)
 	go srv.RunBucketScans(ctx)
+	go php.Run(ctx)
 	go srv.ResumeDBMigrations(ctx)
 
 	httpSrv := &http.Server{

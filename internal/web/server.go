@@ -23,6 +23,7 @@ import (
 	"world/internal/docker"
 	"world/internal/mail"
 	"world/internal/monitor"
+	"world/internal/phpcheck"
 	"world/internal/proxy"
 	"world/internal/secret"
 	"world/internal/store"
@@ -53,6 +54,7 @@ type Server struct {
 	buckets *bucket.Scanner
 	dbmig   *dbmigrate.Migrator
 	mon     *monitor.Monitor
+	php     *phpcheck.Checker
 	version string
 
 	pages    map[string]*template.Template
@@ -60,8 +62,8 @@ type Server struct {
 	limiter  *limiter
 }
 
-func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, poller *deploy.Poller, cron *deploy.Cron, px *proxy.Manager, mx *mail.Manager, mon *monitor.Monitor, version string) (*Server, error) {
-	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, poller: poller, cron: cron, proxy: px, mail: mx, mon: mon, version: version,
+func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, poller *deploy.Poller, cron *deploy.Cron, px *proxy.Manager, mx *mail.Manager, mon *monitor.Monitor, php *phpcheck.Checker, version string) (*Server, error) {
+	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, poller: poller, cron: cron, proxy: px, mail: mx, mon: mon, php: php, version: version,
 		pages: map[string]*template.Template{}, limiter: newLimiter(10, 15*time.Minute)}
 	adminSecret := func() string { return mail.LoadSettings(st, box).AdminSecret }
 	s.mailAPI = mail.NewClient(dc, adminSecret)
@@ -192,6 +194,7 @@ func (s *Server) Handler() http.Handler {
 	priv("POST /sites/{id}/control/{action}", s.siteControl)
 	priv("POST /sites/{id}/delete", s.siteDelete)
 	priv("POST /sites/{id}/rename", s.siteRename)
+	priv("POST /sites/php-update", s.phpUpdate)
 	priv("GET /sites/{id}/logs", s.siteLogs)
 	priv("GET /sites/{id}/console", s.siteConsole)
 	priv("GET /sites/{id}/console/ws", s.siteConsoleWS)

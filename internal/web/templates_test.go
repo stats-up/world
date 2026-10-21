@@ -251,3 +251,21 @@ func TestDatabasePagesRender(t *testing.T) {
 		}
 	}
 }
+
+func TestProblemsPHPButton(t *testing.T) {
+	s := &Server{pages: map[string]*template.Template{}}
+	if err := s.parseTemplates(); err != nil {
+		t.Fatal(err)
+	}
+	d := data{"CSRF": "tok", "Problems": []problem{{Level: "err", Area: "tienda", Title: "PHP 8.3.35 → 8.3.36 disponible"}, {Level: "low", Area: "ittest", Title: "x"}},
+		"PHPUpdatable": []*store.Site{{Name: "tienda"}, {Name: "mellafe"}}}
+	var out strings.Builder
+	if err := s.pages["monitor"].ExecuteTemplate(&out, "problems", d); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`action="/sites/php-update"`, "Actualizar PHP en 2 sitio(s)", "tienda, mellafe", "data-confirm=", "baja prioridad"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("falta %q", want)
+		}
+	}
+}

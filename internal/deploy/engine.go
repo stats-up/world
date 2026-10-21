@@ -41,6 +41,9 @@ type Engine struct {
 	busy map[int64]bool
 
 	cron *Cron // lo asigna NewCron; nil si no hay cron (tests)
+
+	// AfterDeploy se llama tras cada deploy exitoso (ej. para volver a revisar la versión de PHP).
+	AfterDeploy func(siteID int64)
 }
 
 // cronWait: cuánto espera un deploy "recreate" a que termine el cron en curso del sitio.
@@ -114,6 +117,9 @@ func (e *Engine) run(deployID, siteID int64, rename string) {
 	}
 	lg.Printf("\n✓ Deploy completado en %s", time.Since(start).Round(time.Second))
 	e.st.FinishDeployment(deployID, store.DeploySuccess, sha, "")
+	if e.AfterDeploy != nil {
+		e.AfterDeploy(siteID)
+	}
 }
 
 func (e *Engine) deploy(ctx context.Context, lg *logger, deployID, siteID int64, rename string) (string, error) {
@@ -161,7 +167,9 @@ func (e *Engine) deploy(ctx context.Context, lg *logger, deployID, siteID int64,
 	}
 	image := fmt.Sprintf("world/%s:%d", site.Name, deployID)
 	lg.Step("Construyendo imagen " + image)
-	if err := e.exec(ctx, lg, work, []string{"DOCKER_BUILDKIT=1"}, "docker", "build",
+	// --pull: las imágenes base (serversideup/php, node, nginx…) se publican de nuevo con cada parche de
+	// seguridad bajo el mismo tag; sin esto Docker usaría la copia local que bajó la primera vez.
+	if err := e.exec(ctx, lg, work, []string{"DOCKER_BUILDKIT=1"}, "docker", "build", "--pull",
 		"--progress=plain", "-t", image, "-f", dockerfile, "."); err != nil {
 		return sha, fmt.Errorf("docker build falló: %w", err)
 	}
