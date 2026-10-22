@@ -33,7 +33,7 @@ func TestMergeEnv(t *testing.T) {
 func TestPHPDockerfile(t *testing.T) {
 	site := &store.Site{PHPVersion: "8.3", PHPExtensions: "intl gd", BuildAssets: true}
 	df := phpDockerfile(site, true, true)
-	for _, s := range []string{"serversideup/php:8.3-fpm-nginx", "install-php-extensions intl gd", "composer install", "npm run build", "FROM app"} {
+	for _, s := range []string{"serversideup/php:8.3-fpm-nginx", "install-php-extensions intl gd", "composer install", "npm run build", "npm ci --no-audit --no-fund", "--mount=type=cache,target=/root/.npm", "FROM app"} {
 		if !strings.Contains(df, s) {
 			t.Errorf("falta %q en:\n%s", s, df)
 		}

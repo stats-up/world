@@ -158,7 +158,10 @@ func phpDockerfile(site *store.Site, hasComposer, hasPackageJSON bool) string {
 		b.WriteString("\nFROM node:22-alpine AS assets\n")
 		b.WriteString("WORKDIR /app\n")
 		b.WriteString("COPY --from=app /var/www/html /app\n")
-		b.WriteString("RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi && npm run build\n")
+		// Caché de npm entre deploys (los paquetes no se vuelven a descargar) y sin la auditoría ni los
+		// avisos de financiamiento, que consultan el registro y a veces tardan minutos.
+		b.WriteString("RUN --mount=type=cache,target=/root/.npm \\\n" +
+			"    if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi && npm run build\n")
 		b.WriteString("\nFROM app\n")
 		b.WriteString("COPY --from=assets --chown=www-data:www-data /app/public /var/www/html/public\n")
 	}
