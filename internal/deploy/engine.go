@@ -49,6 +49,9 @@ type Engine struct {
 // cronWait: cuánto espera un deploy "recreate" a que termine el cron en curso del sitio.
 const cronWait = 5 * time.Minute
 
+// startupLogLines: cuántas líneas de la salida del contenedor nuevo se copian al log del deploy.
+const startupLogLines = 150
+
 func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box) *Engine {
 	return &Engine{cfg: cfg, st: st, dc: dc, box: box, busy: map[int64]bool{}}
 }
@@ -213,6 +216,10 @@ func (e *Engine) deploy(ctx context.Context, lg *logger, deployID, siteID int64,
 		e.dc.ContainerRemove(ctx, id)
 		undo()
 		return sha, err
+	}
+	// Lo que el contenedor escribió al iniciar (ej. migrate y optimize de Laravel) queda en el log del deploy.
+	if logs, lerr := e.dc.ContainerLogs(ctx, id, startupLogLines); lerr == nil && strings.TrimSpace(logs) != "" {
+		lg.Printf("\n--- Salida del contenedor al iniciar ---\n%s", strings.TrimRight(logs, "\n"))
 	}
 	if rename != "" {
 		if err := e.st.RenameSite(site.ID, rename); err != nil {
