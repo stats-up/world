@@ -335,6 +335,12 @@ pre.log {
   font: 12.5px/1.5 var(--mono); max-height: 65vh; overflow: auto; white-space: pre-wrap; word-break: break-word; margin-top: .5rem;
 }
 pre.log.short { max-height: 20rem; }
+/* El fondo del log es oscuro en ambos temas: colores claros fijos. */
+pre.log .l-step { color: #93c5fd; font-weight: 700; }
+pre.log .l-info { color: #7dd3fc; }
+pre.log .l-ok { color: #4ade80; }
+pre.log .l-warn { color: #fbbf24; }
+pre.log .l-err { color: #f87171; }
 .probe-btn .loading, .probe-btn.htmx-request .idle { display: none; }
 .probe-btn.htmx-request .loading { display: inline; }
 /* --- Filtros de tablas --- */

@@ -77,6 +77,7 @@ func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box,
 }
 
 var funcs = template.FuncMap{
+	"colorLog": colorLog,
 	"ago": func(t time.Time) string {
 		if t.IsZero() {
 			return ""
