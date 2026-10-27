@@ -281,10 +281,36 @@ func TestSiteFormPHPVersions(t *testing.T) {
 	if err := s.pages["site_form"].ExecuteTemplate(&out, "layout", d); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`<option value="8.5"`, "8.5 · parches hasta dic 2029", `<option value="8.1" selected>8.1 · sin parches desde dic 2025`, `name="deploy_mode"`} {
+	for _, want := range []string{`<option value="8.5"`, "8.5 · parches hasta dic 2029", `<option value="8.1" selected>8.1 · sin parches desde dic 2025`, `name="deploy_mode"`,
+		`name="redirect_mode" value="none" checked`} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("falta %q", want)
 		}
+	}
+}
+
+func TestSiteRedirectSome(t *testing.T) {
+	s := &Server{pages: map[string]*template.Template{}}
+	if err := s.parseTemplates(); err != nil {
+		t.Fatal(err)
+	}
+	site := &store.Site{ID: 3, Name: "statsup", Kind: store.KindPHP, PHPVersion: "8.5",
+		Domains: []string{"statsup.cl", "home.statsup.cl", "www.statsup.cl"}, RedirectDomains: []string{"www.statsup.cl"}}
+	d := s.siteFormData(site, "", nil, false)
+	d["CSRF"] = "tok"
+	var out strings.Builder
+	if err := s.pages["site_form"].ExecuteTemplate(&out, "layout", d); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `name="redirect_mode" value="some" checked`) || !strings.Contains(out.String(), ">www.statsup.cl</textarea>") {
+		t.Error("formulario: falta la opción «solo estos» marcada con el www")
+	}
+	out.Reset()
+	if err := s.pages["site"].ExecuteTemplate(&out, "layout", data{"Site": site, "CSRF": "tok"}); err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(out.String(), "→ redirige al principal"); n != 1 {
+		t.Errorf("página del sitio: %d dominios marcados como redirección, quería 1", n)
 	}
 }
 

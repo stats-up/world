@@ -42,6 +42,17 @@ func TestTraefikLabelsRedirect(t *testing.T) {
 		t.Errorf("router sin redirección = %q", got)
 	}
 
+	// Solo el www redirige; tienda sigue llegando a la app. Un dominio que ya no está en la lista no cuenta.
+	site.RedirectDomains = []string{"www.frikiforja.cl", "viejo.frikiforja.cl"}
+	l = TraefikLabels(site)
+	if got := l["traefik.http.routers.site-ff.rule"]; got != "Host(`frikiforja.cl`) || Host(`tienda.frikiforja.cl`)" {
+		t.Errorf("router con www redirigido = %q", got)
+	}
+	if got := l["traefik.http.routers.site-ff-alias.rule"]; got != "Host(`www.frikiforja.cl`)" {
+		t.Errorf("router alias solo www = %q", got)
+	}
+	site.RedirectDomains = nil
+
 	site.RedirectAliases = true
 	site.Domains = site.Domains[:1]
 	if _, ok := TraefikLabels(site)["traefik.http.routers.site-ff-alias.rule"]; ok {

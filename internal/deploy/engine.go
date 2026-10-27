@@ -308,16 +308,13 @@ func hostRule(domains []string) string {
 }
 
 // TraefikLabels genera las labels que Traefik lee para enrutar los dominios del sitio con HTTPS.
-// Con RedirectAliases, solo el dominio principal llega a la app y los demás redirigen a él (301).
+// Los alias que redirigen (todos con RedirectAliases, o los de RedirectDomains) responden 301 al principal.
 func TraefikLabels(site *store.Site) map[string]string {
 	if len(site.Domains) == 0 {
 		return nil
 	}
 	r := "site-" + site.Name
-	served := site.Domains
-	if site.RedirectAliases {
-		served = site.Domains[:1]
-	}
+	served := site.Served()
 	labels := map[string]string{
 		"traefik.enable":                                           "true",
 		"traefik.docker.network":                                   proxy.Network,
@@ -327,7 +324,7 @@ func TraefikLabels(site *store.Site) map[string]string {
 		"traefik.http.routers." + r + ".service":                   r,
 		"traefik.http.services." + r + ".loadbalancer.server.port": strconv.Itoa(site.InternalPort()),
 	}
-	if aliases := site.Aliases(); site.RedirectAliases && len(aliases) > 0 {
+	if aliases := site.Redirected(); len(aliases) > 0 {
 		a, mw := r+"-alias", r+"-redirect"
 		labels["traefik.http.routers."+a+".rule"] = hostRule(aliases)
 		labels["traefik.http.routers."+a+".entrypoints"] = "websecure"

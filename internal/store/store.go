@@ -219,6 +219,9 @@ var migrations = []string{
 	// 11: cómo se reemplaza el contenedor en un deploy y cuánto se espera al detenerlo.
 	`ALTER TABLE sites ADD COLUMN deploy_mode TEXT NOT NULL DEFAULT 'rolling';
 	ALTER TABLE sites ADD COLUMN stop_timeout INTEGER NOT NULL DEFAULT 0;`,
+
+	// 12: alias que redirigen al principal aunque los demás no (ej. solo el www).
+	`ALTER TABLE sites ADD COLUMN redirect_domains TEXT NOT NULL DEFAULT '';`,
 }
 
 func (s *Store) migrate() error {

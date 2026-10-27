@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -43,6 +44,8 @@ type Site struct {
 	PersistPaths []string
 	// RedirectAliases: los dominios distintos del primero redirigen (301) al dominio principal.
 	RedirectAliases bool
+	// RedirectDomains: sin RedirectAliases, los alias que igual redirigen al principal (ej. solo el www).
+	RedirectDomains []string
 
 	// Cron: comando que world ejecuta cada minuto dentro del contenedor (ej: php artisan schedule:run).
 	CronCommand    string
@@ -97,6 +100,28 @@ func (s *Site) Aliases() []string {
 	return s.Domains[1:]
 }
 
+// Redirects indica si el dominio redirige (301) al principal en vez de llegar a la app.
+func (s *Site) Redirects(domain string) bool {
+	if len(s.Domains) < 2 || domain == s.Domains[0] || !slices.Contains(s.Domains, domain) {
+		return false
+	}
+	return s.RedirectAliases || slices.Contains(s.RedirectDomains, domain)
+}
+
+// Redirected son los alias que redirigen al principal; Served, los dominios que llegan a la app.
+func (s *Site) Redirected() []string { return s.splitDomains(true) }
+func (s *Site) Served() []string     { return s.splitDomains(false) }
+
+func (s *Site) splitDomains(redirected bool) []string {
+	var out []string
+	for _, d := range s.Domains {
+		if s.Redirects(d) == redirected {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 // UsesSSH indica si el repo se clona por SSH (privado, con deploy key).
 func (s *Site) UsesSSH() bool {
 	return strings.HasPrefix(s.RepoURL, "git@") || strings.HasPrefix(s.RepoURL, "ssh://")
@@ -118,19 +143,19 @@ const siteCols = `id, name, repo_url, branch, kind, php_version, php_extensions,
 	domains, env_enc, deploy_key_pub, deploy_key_enc, memory_mb, cpus, current_image, created_at,
 	auto_deploy, last_check_at, last_remote_sha, last_check_error,
 	persist_paths, redirect_aliases, cron_command, last_cron_at, last_cron_exit, last_cron_ms, last_cron_output,
-	deploy_mode, stop_timeout`
+	deploy_mode, stop_timeout, redirect_domains`
 
 func scanSite(row interface{ Scan(...any) error }) (*Site, error) {
 	var s Site
 	var assets, autorun, auto, redirect int
-	var domains, persist string
+	var domains, persist, redirectDomains string
 	var created, checked, cronAt int64
 	err := row.Scan(&s.ID, &s.Name, &s.RepoURL, &s.Branch, &s.Kind, &s.PHPVersion, &s.PHPExtensions,
 		&assets, &autorun, &s.Port, &domains, &s.EnvEnc, &s.DeployKeyPub, &s.DeployKeyEnc,
 		&s.MemoryMB, &s.CPUs, &s.CurrentImage, &created,
 		&auto, &checked, &s.LastRemoteSHA, &s.LastCheckError,
 		&persist, &redirect, &s.CronCommand, &cronAt, &s.LastCronExit, &s.LastCronMS, &s.LastCronOutput,
-		&s.DeployMode, &s.StopTimeout)
+		&s.DeployMode, &s.StopTimeout, &redirectDomains)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -139,6 +164,7 @@ func scanSite(row interface{ Scan(...any) error }) (*Site, error) {
 	s.AutoDeploy = auto == 1
 	s.RedirectAliases = redirect == 1
 	s.Domains = SplitLines(domains)
+	s.RedirectDomains = SplitLines(redirectDomains)
 	s.PersistPaths = SplitLines(persist)
 	if cronAt > 0 {
 		s.LastCronAt = time.Unix(cronAt, 0)
@@ -174,13 +200,13 @@ func (s *Store) Site(id int64) (*Site, error) {
 func (s *Store) CreateSite(site *Site) (int64, error) {
 	res, err := s.db.Exec(`INSERT INTO sites (name, repo_url, branch, kind, php_version, php_extensions,
 		build_assets, autorun, port, domains, env_enc, deploy_key_pub, deploy_key_enc, memory_mb, cpus, created_at, auto_deploy,
-		persist_paths, redirect_aliases, cron_command, deploy_mode, stop_timeout)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		persist_paths, redirect_aliases, cron_command, deploy_mode, stop_timeout, redirect_domains)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		site.Name, site.RepoURL, site.Branch, site.Kind, site.PHPVersion, site.PHPExtensions,
 		boolInt(site.BuildAssets), boolInt(site.Autorun), site.Port, strings.Join(site.Domains, "\n"),
 		site.EnvEnc, site.DeployKeyPub, site.DeployKeyEnc, site.MemoryMB, site.CPUs, time.Now().Unix(),
 		boolInt(site.AutoDeploy), strings.Join(site.PersistPaths, "\n"), boolInt(site.RedirectAliases), site.CronCommand,
-		deployMode(site.DeployMode), site.StopTimeout)
+		deployMode(site.DeployMode), site.StopTimeout, strings.Join(site.RedirectDomains, "\n"))
 	if err != nil {
 		return 0, err
 	}
@@ -191,13 +217,13 @@ func (s *Store) CreateSite(site *Site) (int64, error) {
 func (s *Store) UpdateSite(site *Site) error {
 	_, err := s.db.Exec(`UPDATE sites SET repo_url = ?, branch = ?, kind = ?, php_version = ?, php_extensions = ?,
 		build_assets = ?, autorun = ?, port = ?, domains = ?, env_enc = ?, memory_mb = ?, cpus = ?, auto_deploy = ?,
-		persist_paths = ?, redirect_aliases = ?, cron_command = ?, deploy_mode = ?, stop_timeout = ?
-		WHERE id = ?`,
+		persist_paths = ?, redirect_aliases = ?, cron_command = ?, deploy_mode = ?, stop_timeout = ?,
+		redirect_domains = ? WHERE id = ?`,
 		site.RepoURL, site.Branch, site.Kind, site.PHPVersion, site.PHPExtensions,
 		boolInt(site.BuildAssets), boolInt(site.Autorun), site.Port, strings.Join(site.Domains, "\n"),
 		site.EnvEnc, site.MemoryMB, site.CPUs, boolInt(site.AutoDeploy),
 		strings.Join(site.PersistPaths, "\n"), boolInt(site.RedirectAliases), site.CronCommand,
-		deployMode(site.DeployMode), site.StopTimeout, site.ID)
+		deployMode(site.DeployMode), site.StopTimeout, strings.Join(site.RedirectDomains, "\n"), site.ID)
 	return err
 }
 

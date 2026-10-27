@@ -154,7 +154,8 @@ func (s *Server) readSiteForm(r *http.Request, site *store.Site) (string, []stri
 	site.BuildAssets = r.FormValue("build_assets") == "1"
 	site.Autorun = r.FormValue("autorun") == "1"
 	site.AutoDeploy = r.FormValue("auto_deploy") == "1"
-	site.RedirectAliases = r.FormValue("redirect_aliases") == "1"
+	redirectMode := r.FormValue("redirect_mode")
+	site.RedirectAliases = redirectMode == "all"
 	site.CronCommand = strings.TrimSpace(r.FormValue("cron_command"))
 	env := strings.ReplaceAll(r.FormValue("env"), "\r\n", "\n")
 
@@ -218,6 +219,25 @@ func (s *Server) readSiteForm(r *http.Request, site *store.Site) (string, []stri
 		if !seen[d] { // los inválidos se conservan para re-mostrar el formulario; con errores no se guarda nada
 			seen[d] = true
 			site.Domains = append(site.Domains, d)
+		}
+	}
+
+	site.RedirectDomains = nil
+	if redirectMode == "some" {
+		for _, d := range store.SplitLines(strings.ToLower(r.FormValue("redirect_domains"))) {
+			d = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(d, "https://"), "http://"), "/")
+			switch {
+			case d == site.PrimaryDomain():
+				errs = append(errs, "El dominio principal no puede redirigir a sí mismo: "+d)
+			case !oneOf(d, site.Domains...):
+				errs = append(errs, "Para redirigir "+d+" agrégalo también a la lista de dominios.")
+			}
+			if !oneOf(d, site.RedirectDomains...) {
+				site.RedirectDomains = append(site.RedirectDomains, d)
+			}
+		}
+		if len(site.RedirectDomains) == 0 {
+			errs = append(errs, "Indica qué dominios redirigen al principal, o elige otra opción.")
 		}
 	}
 

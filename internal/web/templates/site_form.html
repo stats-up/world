@@ -30,7 +30,15 @@
       <textarea name="domains" rows="3" placeholder="miempresa.cl&#10;www.miempresa.cl&#10;api.miempresa.cl">{{join .Site.Domains "\n"}}</textarea>
       <small>Cada dominio debe tener un registro DNS tipo A apuntando a la IP de este servidor. El certificado SSL se emite solo.</small>
     </label>
-    <label class="check"><input type="checkbox" name="redirect_aliases" value="1"{{if .Site.RedirectAliases}} checked{{end}}> <span>El primer dominio es el principal: los demás redirigen a él (301, conservando la ruta)</span></label>
+    <p class="small muted">El primer dominio es el principal. Los que redirigen responden 301 hacia él conservando la ruta (lo que Google espera para el www).</p>
+    <label class="check"><input type="radio" name="redirect_mode" value="all"{{if .Site.RedirectAliases}} checked{{end}}>
+      <span><strong>Todos los demás redirigen al principal</strong></span></label>
+    <label class="check"><input type="radio" name="redirect_mode" value="some"{{if and (not .Site.RedirectAliases) .Site.RedirectDomains}} checked{{end}}>
+      <span><strong>Solo estos redirigen</strong> (el resto llega a la app, ej. subdominios con su propio uso)</span></label>
+    <label>Dominios que redirigen (uno por línea, deben estar en la lista de arriba)
+      <textarea name="redirect_domains" rows="2" placeholder="www.miempresa.cl">{{join .Site.RedirectDomains "\n"}}</textarea></label>
+    <label class="check"><input type="radio" name="redirect_mode" value="none"{{if and (not .Site.RedirectAliases) (not .Site.RedirectDomains)}} checked{{end}}>
+      <span><strong>Ninguno redirige</strong> (todos los dominios muestran el sitio)</span></label>
   </fieldset></div>
 
   <div class="section"><div class="section-head"><h3>Datos y tareas programadas</h3><p>Lo que debe sobrevivir a cada deploy y las tareas que corren cada minuto.</p></div>

@@ -26,7 +26,7 @@
     <dl class="props">
       <dt>Repositorio</dt><dd><code>{{.Site.RepoURL}}</code> <span class="muted small">{{icon "branch"}} {{.Site.Branch}}</span></dd>
       <dt>Tipo</dt><dd>{{.Site.Kind}}{{if eq .Site.Kind "php"}} · PHP {{.Site.PHPVersion}}{{with .Site.PHPExtensions}} · ext: {{.}}{{end}}{{end}}</dd>
-      <dt>Dominios</dt><dd>{{range $i, $d := .Site.Domains}}<a href="https://{{$d}}" target="_blank" rel="noopener">{{$d}}</a>{{if and $.Site.RedirectAliases (gt (len $.Site.Domains) 1)}}{{if eq $i 0}} <span class="badge accent">principal</span>{{else}} <span class="muted small">→ redirige al principal</span>{{end}}{{end}}<br>{{else}}<span class="muted">sin dominio (no es accesible desde internet)</span>{{end}}</dd>
+      <dt>Dominios</dt><dd>{{range $i, $d := .Site.Domains}}<a href="https://{{$d}}" target="_blank" rel="noopener">{{$d}}</a>{{if $.Site.Redirected}}{{if eq $i 0}} <span class="badge accent">principal</span>{{else if $.Site.Redirects $d}} <span class="muted small">→ redirige al principal</span>{{end}}{{end}}<br>{{else}}<span class="muted">sin dominio (no es accesible desde internet)</span>{{end}}</dd>
       <dt>Carpetas persistentes</dt><dd>{{range .Site.PersistPaths}}<code>{{.}}</code><br>{{else}}<span class="muted">ninguna (todo se pierde en cada deploy)</span>{{end}}</dd>
       <dt>Cron</dt><dd>{{if .Site.CronCommand}}<code>{{.Site.CronCommand}}</code> <span class="muted small">cada minuto</span><br>
         {{if .Site.LastCronAt.IsZero}}<span class="muted small">aún no se ha ejecutado</span>
