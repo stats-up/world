@@ -106,7 +106,7 @@ func (s *Server) mailDomainCreate(w http.ResponseWriter, r *http.Request) {
 		origin = mail.DefaultOrigin(name)
 	}
 	if origin != "" && (!hostRe.MatchString(origin) || (origin != name && !strings.HasSuffix(name, "."+origin))) {
-		fail("La zona DNS debe ser el dominio o uno de sus dominios padre (ej: frikiforja.cl).")
+		fail("La zona DNS debe ser el dominio o uno de sus dominios padre (ej: otraempresa.cl).")
 		return
 	}
 	if origin == name {

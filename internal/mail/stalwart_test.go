@@ -20,7 +20,7 @@ func TestSettingsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := memStore{}
-	in := Settings{Enabled: true, Hostname: "mx.statsup.cl", S3Bucket: "statsup", S3Prefix: "mail/",
+	in := Settings{Enabled: true, Hostname: "mx.miempresa.cl", S3Bucket: "miempresa", S3Prefix: "mail/",
 		S3AccessKey: "AK", S3SecretKey: "SK", CFToken: "CF", AdminSecret: "admin-pass"}
 	if err := SaveSettings(st, box, in); err != nil {
 		t.Fatal(err)
@@ -51,18 +51,18 @@ func TestSettingsRoundTrip(t *testing.T) {
 func TestLoadDefaults(t *testing.T) {
 	box, _ := secret.LoadOrCreate(filepath.Join(t.TempDir(), "k"))
 	s := LoadSettings(memStore{}, box)
-	if s.Enabled || s.Hostname != "mx.statsup.cl" || s.S3Prefix != "mail/" {
+	if s.Enabled || s.Hostname != "" || s.S3Prefix != "mail/" {
 		t.Fatalf("defaults: %+v", s)
 	}
-	if len(s.Missing()) != 3 { // el nombre del servidor tiene valor por defecto
+	if len(s.Missing()) != 4 { // el nombre del servidor se configura en cada instalación
 		t.Fatalf("missing: %v", s.Missing())
 	}
 }
 
 func TestEnv(t *testing.T) {
-	s := Settings{Hostname: "mx.statsup.cl", S3AccessKey: "AK", S3SecretKey: "SK", CFToken: "CF", AdminSecret: "pw:con:dos-puntos"}
+	s := Settings{Hostname: "mx.miempresa.cl", S3AccessKey: "AK", S3SecretKey: "SK", CFToken: "CF", AdminSecret: "pw:con:dos-puntos"}
 	env := s.env()
-	for _, want := range []string{"STALWART_HOSTNAME=mx.statsup.cl", "STALWART_RECOVERY_ADMIN=admin:pw:con:dos-puntos",
+	for _, want := range []string{"STALWART_HOSTNAME=mx.miempresa.cl", "STALWART_RECOVERY_ADMIN=admin:pw:con:dos-puntos",
 		"S3_ACCESS_KEY=AK", "S3_SECRET_KEY=SK", "CF_API_TOKEN=CF"} {
 		if !slices.Contains(env, want) {
 			t.Errorf("falta %q en %v", want, env)

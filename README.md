@@ -75,7 +75,7 @@ Puedes ejecutarlo de nuevo sin problemas: solo completa lo que falte.
 4. Cierra el puerto `9000` en el firewall de Lightsail.
 
 **¿Aún no tienes dominio?** Puedes usar `sslip.io`, un servicio público que resuelve cualquier nombre con la IP incluida a esa misma IP.
-Por ejemplo, `panel.56-125-173-77.sslip.io` apunta a `56.125.173.77`, sin configurar nada. Sirve para probar, incluido el certificado SSL.
+Por ejemplo, `panel.203-0-113-10.sslip.io` apunta a `203.0.113.10`, sin configurar nada. Sirve para probar, incluido el certificado SSL.
 El panel te sugiere el nombre correcto en **Ajustes**.
 
 ## Publicar un sitio
@@ -197,7 +197,7 @@ Los dominios y buzones se administran en la sección **Correo** del panel (la fu
 - Las acciones delicadas (eliminar, cambiar el MX, cambiar contraseñas) piden confirmación con SweetAlert2 (`data-confirm` en el formulario, ver `static/confirm.js`).
 
 - Publica los puertos `25`, `465`, `587` y `993`: ábrelos en el firewall de Lightsail (IPv4 e IPv6).
-- El nombre del servidor (ej: `mx.statsup.cl`) necesita un registro A a la IP (nube gris en Cloudflare) y el **DNS inverso (PTR)** de la IP con ese mismo nombre. En Lightsail, el PTR y el desbloqueo del puerto 25 de salida se piden a AWS con el formulario *Request to remove email sending limitations*.
+- El nombre del servidor (ej: `mx.miempresa.cl`) necesita un registro A a la IP (nube gris en Cloudflare) y el **DNS inverso (PTR)** de la IP con ese mismo nombre. En Lightsail, el PTR y el desbloqueo del puerto 25 de salida se piden a AWS con el formulario *Request to remove email sending limitations*.
 - Los secretos (llaves del bucket, token de Cloudflare, contraseña del administrador) se guardan cifrados y se pasan al contenedor como variables de ambiente.
 - El HTTP de Stalwart (JMAP, administración) no se publica: queda en la red Docker `world` (`http://world-stalwart:8080`). Para usar su consola web:
   1. En el servidor, mira la IP interna del contenedor:

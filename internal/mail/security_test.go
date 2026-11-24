@@ -7,18 +7,18 @@ import (
 )
 
 func TestNormalizeIPMaskAndCovers(t *testing.T) {
-	ok := map[string]string{" 54.20.26.50 ": "54.20.26.50", "172.18.0.5/16": "172.18.0.0/16", "2001:db8::1": "2001:db8::1"}
+	ok := map[string]string{" 203.0.113.10 ": "203.0.113.10", "172.18.0.5/16": "172.18.0.0/16", "2001:db8::1": "2001:db8::1"}
 	for in, want := range ok {
 		if got, err := NormalizeIPMask(in); err != nil || got != want {
 			t.Errorf("%q → %q %v", in, got, err)
 		}
 	}
-	for _, bad := range []string{"", "mx.statsup.cl", "1.2.3", "1.2.3.4/40"} {
+	for _, bad := range []string{"", "mx.miempresa.cl", "1.2.3", "1.2.3.4/40"} {
 		if _, err := NormalizeIPMask(bad); err == nil {
 			t.Errorf("%q debió fallar", bad)
 		}
 	}
-	if !Covers("172.18.0.0/16", "172.18.0.9") || Covers("172.18.0.0/16", "172.19.0.1") || !Covers("54.20.26.50", "54.20.26.50") || Covers("x", "1.1.1.1") {
+	if !Covers("172.18.0.0/16", "172.18.0.9") || Covers("172.18.0.0/16", "172.19.0.1") || !Covers("203.0.113.10", "203.0.113.10") || Covers("x", "1.1.1.1") {
 		t.Error("Covers")
 	}
 	auth := "authFailure"

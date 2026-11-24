@@ -14,11 +14,11 @@ func TestMailSecurityPage(t *testing.T) {
 	if err := s.parseTemplates(); err != nil {
 		t.Fatal(err)
 	}
-	server := []serverAddr{{Address: "54.20.26.50", Label: "IP pública del servidor (mx.statsup.cl)"},
+	server := []serverAddr{{Address: "203.0.113.10", Label: "IP pública del servidor (mx.miempresa.cl)"},
 		{Address: "172.18.0.0/16", Label: "Red interna de Docker", Allowed: true}}
 	auth, scan := "authFailure", "portScanning"
-	ip1 := mail.IPEntry{ID: "b1", Address: "54.20.26.50", Reason: &auth, CreatedAt: time.Now().Add(-time.Hour)}
-	ip2 := mail.IPEntry{ID: "b2", Address: "165.154.11.140", Reason: &scan, CreatedAt: time.Now()}
+	ip1 := mail.IPEntry{ID: "b1", Address: "203.0.113.10", Reason: &auth, CreatedAt: time.Now().Add(-time.Hour)}
+	ip2 := mail.IPEntry{ID: "b2", Address: "198.51.100.77", Reason: &scan, CreatedAt: time.Now()}
 	rows := []blockedRow{{IPEntry: ip1, Server: serverLabel(ip1.Address, server)}, {IPEntry: ip2, Server: serverLabel(ip2.Address, server)}}
 	if rows[0].Server == "" || rows[1].Server != "" || serverLabel("172.18.0.9", server) == "" {
 		t.Fatalf("serverLabel: %+v", rows)
@@ -33,7 +33,7 @@ func TestMailSecurityPage(t *testing.T) {
 	html := out.String()
 	for _, want := range []string{"Stalwart está bloqueando una dirección del propio servidor", `name="id" value="b1"`,
 		"Fallas de autenticación", "Escaneo de puertos", `data-reason="portScanning"`, `action="/mail/security/allowed/a1/delete"`,
-		"data-confirm=", `name="address" value="54.20.26.50"`, "permitida", `href="/mail/security"`, `aria-current="page"`, "nunca"} {
+		"data-confirm=", `name="address" value="203.0.113.10"`, "permitida", `href="/mail/security"`, `aria-current="page"`, "nunca"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("falta %q", want)
 		}

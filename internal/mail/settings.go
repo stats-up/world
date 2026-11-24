@@ -49,9 +49,6 @@ func LoadSettings(st SettingsStore, box *secret.Box) Settings {
 		CFToken:     open(keyCFToken),
 		AdminSecret: open(keyAdminSecret),
 	}
-	if s.Hostname == "" {
-		s.Hostname = "mx.statsup.cl"
-	}
 	if s.S3Prefix == "" {
 		s.S3Prefix = "mail/"
 	}

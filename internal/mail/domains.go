@@ -50,7 +50,7 @@ func (d domainJSON) toDomain() Domain {
 		Active: d.DNSManagement.PublishRecords["mx"], ZoneFile: d.DNSZoneFile}
 }
 
-// IsServerDomain: el dominio que existe solo para el certificado del nombre del servidor (mx.statsup.cl).
+// IsServerDomain: el dominio que existe solo para el certificado del nombre del servidor (mx.miempresa.cl).
 // No se listan ni se pueden borrar desde world.
 func IsServerDomain(name, hostname string) bool { return name == hostname }
 
@@ -191,7 +191,7 @@ func (c *Client) DeleteDomain(ctx context.Context, id string) error {
 	return c.destroy(ctx, "Domain", id)
 }
 
-// DefaultOrigin adivina la zona de Cloudflare: los dos últimos niveles (frikiforja.cl para prueba.frikiforja.cl).
+// DefaultOrigin adivina la zona de Cloudflare: los dos últimos niveles (otraempresa.cl para prueba.otraempresa.cl).
 func DefaultOrigin(name string) string {
 	parts := strings.Split(name, ".")
 	if len(parts) <= 2 {

@@ -24,7 +24,7 @@ func TestBuildProblems(t *testing.T) {
 			{ID: 1, Name: "tienda", Kind: store.KindPHP},
 			{ID: 3, Name: "webmail", Kind: store.KindDockerfile, CronCommand: "php artisan schedule:run",
 				LastCronAt: now.Add(-time.Minute), LastCronExit: 127, LastCronOutput: "sh: php: not found\n"},
-			{ID: 8, Name: "candidatos", Kind: store.KindPHP},
+			{ID: 8, Name: "portal", Kind: store.KindPHP},
 			{ID: 9, Name: "nuevo"},
 			{ID: 10, Name: "deployando"},
 		},
@@ -45,7 +45,7 @@ func TestBuildProblems(t *testing.T) {
 	all := strings.Join(lines, "\n")
 	for _, want := range []string{
 		"err webmail: El cron falla (código 127) | «php artisan schedule:run»: El comando no existe dentro del contenedor (sh: php: not found). El sitio no es PHP/Laravel",
-		"err candidatos: No está publicado: el último deploy falló | el health check del contenedor falló",
+		"err portal: No está publicado: el último deploy falló | el health check del contenedor falló",
 		"err Servidor: Disco al 91 %",
 		"warn tienda: El último deploy (#70) falló | Sigue atendiendo la versión anterior. docker build falló",
 		"warn tienda: 2 proceso(s) terminados por falta de memoria",

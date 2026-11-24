@@ -105,8 +105,8 @@ func TestClientDomains(t *testing.T) {
 		switch method {
 		case "x:Domain/get":
 			return method, map[string]any{"list": []map[string]any{
-				{"id": "c", "name": "prueba.frikiforja.cl", "dnsManagement": map[string]any{"@type": "Automatic", "origin": "frikiforja.cl", "publishRecords": map[string]bool{"mx": true, "dkim": true}}},
-				{"id": "b", "name": "mx.statsup.cl", "dnsManagement": map[string]any{"@type": "Automatic", "publishRecords": map[string]bool{"caa": true}}},
+				{"id": "c", "name": "prueba.otraempresa.cl", "dnsManagement": map[string]any{"@type": "Automatic", "origin": "otraempresa.cl", "publishRecords": map[string]bool{"mx": true, "dkim": true}}},
+				{"id": "b", "name": "mx.miempresa.cl", "dnsManagement": map[string]any{"@type": "Automatic", "publishRecords": map[string]bool{"caa": true}}},
 			}}
 		case "x:Account/query":
 			if args["filter"].(map[string]any)["domainId"] == "c" {
@@ -123,25 +123,25 @@ func TestClientDomains(t *testing.T) {
 	if err != nil || len(ds) != 2 {
 		t.Fatalf("%v %v", ds, err)
 	}
-	if ds[1].Name != "prueba.frikiforja.cl" || !ds[1].Active || ds[1].Accounts != 2 || ds[1].Used != 1500 || ds[1].Origin != "frikiforja.cl" {
+	if ds[1].Name != "prueba.otraempresa.cl" || !ds[1].Active || ds[1].Accounts != 2 || ds[1].Used != 1500 || ds[1].Origin != "otraempresa.cl" {
 		t.Errorf("dominio: %+v", ds[1])
 	}
 	if ds[0].Active {
-		t.Errorf("mx.statsup.cl no publica MX: %+v", ds[0])
+		t.Errorf("mx.miempresa.cl no publica MX: %+v", ds[0])
 	}
 }
 
-const zone = `prueba.frikiforja.cl. IN TXT "v=spf1 mx -all"
-prueba.frikiforja.cl. IN MX 10 mx.statsup.cl.
-_dmarc.prueba.frikiforja.cl. IN TXT "v=DMARC1; p=reject; rua=mailto:postmaster@prueba.frikiforja.cl"
-_imaps._tcp.prueba.frikiforja.cl. IN SRV 0 1 993 mx.statsup.cl.
-mta-sts.prueba.frikiforja.cl. IN CNAME mx.statsup.cl.
-_mta-sts.prueba.frikiforja.cl. IN TXT "v=STSv1; id=1"
-v1-ed25519-20261006._domainkey.prueba.frikiforja.cl. IN TXT "v=DKIM1; k=ed25519; h=sha256; p=TMN="
-v1-rsa-20261006._domainkey.prueba.frikiforja.cl. IN TXT (
+const zone = `prueba.otraempresa.cl. IN TXT "v=spf1 mx -all"
+prueba.otraempresa.cl. IN MX 10 mx.miempresa.cl.
+_dmarc.prueba.otraempresa.cl. IN TXT "v=DMARC1; p=reject; rua=mailto:postmaster@prueba.otraempresa.cl"
+_imaps._tcp.prueba.otraempresa.cl. IN SRV 0 1 993 mx.miempresa.cl.
+mta-sts.prueba.otraempresa.cl. IN CNAME mx.miempresa.cl.
+_mta-sts.prueba.otraempresa.cl. IN TXT "v=STSv1; id=1"
+v1-ed25519-20261006._domainkey.prueba.otraempresa.cl. IN TXT "v=DKIM1; k=ed25519; h=sha256; p=TMN="
+v1-rsa-20261006._domainkey.prueba.otraempresa.cl. IN TXT (
     "v=DKIM1; k=rsa; h=sha256; p=MIIB"
     "AQAB" )
-autoconfig.prueba.frikiforja.cl. IN CNAME mx.statsup.cl.
+autoconfig.prueba.otraempresa.cl. IN CNAME mx.miempresa.cl.
 `
 
 func TestParseZone(t *testing.T) {
@@ -151,12 +151,12 @@ func TestParseZone(t *testing.T) {
 		got = append(got, r.Type+" "+r.Name+" = "+r.Value)
 	}
 	want := []string{
-		"TXT prueba.frikiforja.cl = v=spf1 mx -all",
-		"MX prueba.frikiforja.cl = 10 mx.statsup.cl",
-		"TXT _dmarc.prueba.frikiforja.cl = v=DMARC1; p=reject; rua=mailto:postmaster@prueba.frikiforja.cl",
-		"TXT v1-ed25519-20261006._domainkey.prueba.frikiforja.cl = v=DKIM1; k=ed25519; h=sha256; p=TMN=",
-		"TXT v1-rsa-20261006._domainkey.prueba.frikiforja.cl = v=DKIM1; k=rsa; h=sha256; p=MIIBAQAB",
-		"CNAME autoconfig.prueba.frikiforja.cl = mx.statsup.cl",
+		"TXT prueba.otraempresa.cl = v=spf1 mx -all",
+		"MX prueba.otraempresa.cl = 10 mx.miempresa.cl",
+		"TXT _dmarc.prueba.otraempresa.cl = v=DMARC1; p=reject; rua=mailto:postmaster@prueba.otraempresa.cl",
+		"TXT v1-ed25519-20261006._domainkey.prueba.otraempresa.cl = v=DKIM1; k=ed25519; h=sha256; p=TMN=",
+		"TXT v1-rsa-20261006._domainkey.prueba.otraempresa.cl = v=DKIM1; k=rsa; h=sha256; p=MIIBAQAB",
+		"CNAME autoconfig.prueba.otraempresa.cl = mx.miempresa.cl",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("got:\n%s", strings.Join(got, "\n"))
@@ -174,7 +174,7 @@ func TestStatusFor(t *testing.T) {
 		want  string
 	}{
 		{[]string{"google-site-verification=x", "v=spf1 mx -all"}, nil, "ok"},
-		{[]string{"v=spf1 ip4:38.18.230.11 ~all"}, nil, "distinto"},
+		{[]string{"v=spf1 ip4:198.51.100.20 ~all"}, nil, "distinto"},
 		{[]string{"google-site-verification=x"}, nil, "falta"},
 		{nil, notFound, "falta"},
 		{nil, errors.New("timeout"), "error"},
@@ -187,7 +187,7 @@ func TestStatusFor(t *testing.T) {
 }
 
 func TestDefaultOriginAndQuota(t *testing.T) {
-	for in, want := range map[string]string{"frikiforja.cl": "", "prueba.frikiforja.cl": "frikiforja.cl", "a.b.statsup.cl": "statsup.cl"} {
+	for in, want := range map[string]string{"otraempresa.cl": "", "prueba.otraempresa.cl": "otraempresa.cl", "a.b.miempresa.cl": "miempresa.cl"} {
 		if got := DefaultOrigin(in); got != want {
 			t.Errorf("DefaultOrigin(%s) = %q", in, got)
 		}
@@ -210,7 +210,7 @@ func TestSetDomainActivePublishes(t *testing.T) {
 		methods = append(methods, method)
 		switch method {
 		case "x:Domain/get":
-			return method, map[string]any{"list": []map[string]any{{"id": "d", "name": "statsup.cl", "dnsManagement": map[string]any{"@type": "Automatic"}}}}
+			return method, map[string]any{"list": []map[string]any{{"id": "d", "name": "miempresa.cl", "dnsManagement": map[string]any{"@type": "Automatic"}}}}
 		case "x:DnsServer/query":
 			return method, map[string]any{"ids": []string{"dns1"}}
 		case "x:Domain/set":

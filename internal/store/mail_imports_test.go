@@ -11,7 +11,7 @@ func TestMailImports(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	id, err := st.CreateMailImport(&MailImport{AccountID: "a", Email: "x@y.cl", Host: "38.18.230.11", Port: 993, SrcUser: "x@y.cl"})
+	id, err := st.CreateMailImport(&MailImport{AccountID: "a", Email: "x@y.cl", Host: "198.51.100.20", Port: 993, SrcUser: "x@y.cl"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,7 +12,7 @@ import (
 type Record struct {
 	Name   string // nombre completo, sin punto final
 	Type   string // MX, TXT, CNAME
-	Value  string // valor esperado (MX: "10 mx.statsup.cl")
+	Value  string // valor esperado (MX: "10 mx.miempresa.cl")
 	Status string // ok | distinto | falta | error
 	Found  string // lo que hay publicado, si es distinto
 	Note   string

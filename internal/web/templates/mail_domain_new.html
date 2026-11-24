@@ -8,9 +8,9 @@
 <form method="post" action="/mail/domains" class="card stack">
   <input type="hidden" name="csrf" value="{{.CSRF}}">
   <div class="cols">
-    <label>Dominio<input name="name" value="{{.Form.name}}" placeholder="frikiforja.cl" required autofocus autocomplete="off"></label>
+    <label>Dominio<input name="name" value="{{.Form.name}}" placeholder="otraempresa.cl" required autofocus autocomplete="off"></label>
     <label>Zona DNS en Cloudflare (opcional)<input name="origin" value="{{.Form.origin}}" placeholder="automática" autocomplete="off">
-      <small>Solo para subdominios: ej. <code>frikiforja.cl</code> para <code>prueba.frikiforja.cl</code>.</small></label>
+      <small>Solo para subdominios: ej. <code>otraempresa.cl</code> para <code>prueba.otraempresa.cl</code>.</small></label>
   </div>
   <label>Descripción (opcional)<input name="description" value="{{.Form.description}}" placeholder="Cliente, notas…"></label>
   <fieldset>

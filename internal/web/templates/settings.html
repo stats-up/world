@@ -39,14 +39,14 @@
   Los campos secretos no se muestran: déjalos vacíos para conservar el valor guardado.</p>
   <fieldset>
     <label>Nombre del servidor
-      <input name="hostname" value="{{.Hostname}}" placeholder="mx.statsup.cl" required>
+      <input name="hostname" value="{{.Hostname}}" placeholder="mx.miempresa.cl" required>
       <small>Debe tener un registro A a la IP del servidor (nube gris) y coincidir con el DNS inverso (PTR) de la IP.</small>
     </label>
   </fieldset>
   <fieldset>
     <legend>Bucket para correos y adjuntos {{if .HasS3}}<span class="badge ok">llaves guardadas</span>{{end}}</legend>
     <div class="cols">
-      <label>Bucket (São Paulo)<input name="s3_bucket" value="{{.S3Bucket}}" placeholder="statsup"></label>
+      <label>Bucket (São Paulo)<input name="s3_bucket" value="{{.S3Bucket}}" placeholder="miempresa"></label>
       <label>Prefijo<input name="s3_prefix" value="{{.S3Prefix}}" placeholder="mail/"></label>
     </div>
     <div class="cols">

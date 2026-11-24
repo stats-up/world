@@ -40,7 +40,7 @@ var publishedPorts = []string{"25", "465", "587", "993"}
 // Settings es la configuración de correo que se guarda en los ajustes de world (secretos cifrados).
 type Settings struct {
 	Enabled     bool
-	Hostname    string // nombre del servidor (PTR, saludo SMTP), ej: mx.statsup.cl
+	Hostname    string // nombre del servidor (PTR, saludo SMTP), ej: mx.miempresa.cl
 	S3Bucket    string
 	S3Prefix    string
 	S3AccessKey string
@@ -164,10 +164,10 @@ func (m *Manager) Ensure(ctx context.Context, s Settings) error {
 			RestartPolicy: docker.RestartPolicy{Name: "unless-stopped"},
 			Memory:        memoryLimit,
 		},
-		// La red world es solo IPv4: el correo sale siempre por la IPv4, que es la que tiene PTR (mx.statsup.cl).
+		// La red world es solo IPv4: el correo sale siempre por la IPv4, que es la que tiene PTR (mx.miempresa.cl).
 		// Si algún día se activa IPv6 en Docker, configurar antes el PTR de la IPv6 o Gmail rechazará los envíos.
-		// Con el alias, los sitios llegan a mx.statsup.cl por la red interna: el certificado calza y Stalwart
-		// ve la IP de cada contenedor. Por la IP pública volverían como 54.20.26.50 (la del propio servidor),
+		// Con el alias, los sitios llegan a mx.miempresa.cl por la red interna: el certificado calza y Stalwart
+		// ve la IP de cada contenedor. Por la IP pública volverían como 203.0.113.10 (la del propio servidor),
 		// y un bloqueo automático de esa IP dejaría a todos los sitios sin poder enviar.
 		NetworkingConfig: &docker.NetworkingConfig{EndpointsConfig: map[string]docker.EndpointSettings{
 			proxy.Network: {Aliases: []string{s.Hostname}}}},

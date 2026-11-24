@@ -21,15 +21,15 @@ func TestVolumeName(t *testing.T) {
 
 func TestTraefikLabelsRedirect(t *testing.T) {
 	site := &store.Site{Name: "ff", Kind: store.KindPHP, RedirectAliases: true,
-		Domains: []string{"frikiforja.cl", "www.frikiforja.cl", "tienda.frikiforja.cl"}}
+		Domains: []string{"otraempresa.cl", "www.otraempresa.cl", "tienda.otraempresa.cl"}}
 	l := TraefikLabels(site)
-	if got := l["traefik.http.routers.site-ff.rule"]; got != "Host(`frikiforja.cl`)" {
+	if got := l["traefik.http.routers.site-ff.rule"]; got != "Host(`otraempresa.cl`)" {
 		t.Errorf("router principal = %q", got)
 	}
-	if got := l["traefik.http.routers.site-ff-alias.rule"]; got != "Host(`www.frikiforja.cl`) || Host(`tienda.frikiforja.cl`)" {
+	if got := l["traefik.http.routers.site-ff-alias.rule"]; got != "Host(`www.otraempresa.cl`) || Host(`tienda.otraempresa.cl`)" {
 		t.Errorf("router alias = %q", got)
 	}
-	if got := l["traefik.http.middlewares.site-ff-redirect.redirectregex.replacement"]; got != "https://frikiforja.cl${1}" {
+	if got := l["traefik.http.middlewares.site-ff-redirect.redirectregex.replacement"]; got != "https://otraempresa.cl${1}" {
 		t.Errorf("replacement = %q", got)
 	}
 
@@ -38,17 +38,17 @@ func TestTraefikLabelsRedirect(t *testing.T) {
 	if _, ok := l["traefik.http.routers.site-ff-alias.rule"]; ok {
 		t.Error("sin RedirectAliases no debe haber router de alias")
 	}
-	if got := l["traefik.http.routers.site-ff.rule"]; got != "Host(`frikiforja.cl`) || Host(`www.frikiforja.cl`) || Host(`tienda.frikiforja.cl`)" {
+	if got := l["traefik.http.routers.site-ff.rule"]; got != "Host(`otraempresa.cl`) || Host(`www.otraempresa.cl`) || Host(`tienda.otraempresa.cl`)" {
 		t.Errorf("router sin redirección = %q", got)
 	}
 
 	// Solo el www redirige; tienda sigue llegando a la app. Un dominio que ya no está en la lista no cuenta.
-	site.RedirectDomains = []string{"www.frikiforja.cl", "viejo.frikiforja.cl"}
+	site.RedirectDomains = []string{"www.otraempresa.cl", "viejo.otraempresa.cl"}
 	l = TraefikLabels(site)
-	if got := l["traefik.http.routers.site-ff.rule"]; got != "Host(`frikiforja.cl`) || Host(`tienda.frikiforja.cl`)" {
+	if got := l["traefik.http.routers.site-ff.rule"]; got != "Host(`otraempresa.cl`) || Host(`tienda.otraempresa.cl`)" {
 		t.Errorf("router con www redirigido = %q", got)
 	}
-	if got := l["traefik.http.routers.site-ff-alias.rule"]; got != "Host(`www.frikiforja.cl`)" {
+	if got := l["traefik.http.routers.site-ff-alias.rule"]; got != "Host(`www.otraempresa.cl`)" {
 		t.Errorf("router alias solo www = %q", got)
 	}
 	site.RedirectDomains = nil

@@ -46,12 +46,12 @@ func TestLastLines(t *testing.T) {
 }
 
 func TestImportValidation(t *testing.T) {
-	for h, ok := range map[string]bool{"38.18.230.11": true, "mail.statsup.cl": true, "localhost": false, "a b": false, "": false} {
+	for h, ok := range map[string]bool{"198.51.100.20": true, "mail.miempresa.cl": true, "localhost": false, "a b": false, "": false} {
 		if validImportHost(h) != ok {
 			t.Errorf("host %q", h)
 		}
 	}
-	for u, ok := range map[string]bool{"fernando.dc@statsup.cl": true, "a b": false, "": false, "x\ny": false} {
+	for u, ok := range map[string]bool{"ana@miempresa.cl": true, "a b": false, "": false, "x\ny": false} {
 		if validImportUser(u) != ok {
 			t.Errorf("usuario %q", u)
 		}

@@ -62,7 +62,7 @@ func fakeIMAP(t *testing.T, password string) int {
 						send("+ ")
 						resp, _ := r.ReadString('\n')
 						b, _ := base64.StdEncoding.DecodeString(strings.TrimSpace(resp))
-						if string(b) == "\x00fer@statsup.cl\x00"+password {
+						if string(b) == "\x00ana@miempresa.cl\x00"+password {
 							send(tag + " OK Logged in")
 						} else {
 							send(tag + " NO [AUTHENTICATIONFAILED] Authentication failed.")
@@ -101,14 +101,14 @@ func fakeIMAP(t *testing.T, password string) int {
 func TestProbeSource(t *testing.T) {
 	port := fakeIMAP(t, `cl@ve "rara"\ñ`)
 	ctx := context.Background()
-	info, err := ProbeSource(ctx, "127.0.0.1", port, "fer@statsup.cl", `cl@ve "rara"\ñ`)
+	info, err := ProbeSource(ctx, "127.0.0.1", port, "ana@miempresa.cl", `cl@ve "rara"\ñ`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if info.Folders != 3 || info.Messages != 223 || info.Server != "Dovecot ready." {
 		t.Fatalf("info: %+v", info)
 	}
-	if _, err := ProbeSource(ctx, "127.0.0.1", port, "fer@statsup.cl", "mala"); !errors.Is(err, ErrSourceAuth) {
+	if _, err := ProbeSource(ctx, "127.0.0.1", port, "ana@miempresa.cl", "mala"); !errors.Is(err, ErrSourceAuth) {
 		t.Fatalf("contraseña mala: %v", err)
 	}
 	ln, _ := net.Listen("tcp", "127.0.0.1:0")

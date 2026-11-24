@@ -22,7 +22,7 @@
   <fieldset>
     <legend>Origen (MySQL o MariaDB)</legend>
     <div class="cols">
-      <label>Host<input name="src_host" value="{{.Form.src_host}}" placeholder="38.18.230.11" required autocomplete="off" spellcheck="false"></label>
+      <label>Host<input name="src_host" value="{{.Form.src_host}}" placeholder="198.51.100.20" required autocomplete="off" spellcheck="false"></label>
       <label>Puerto<input name="src_port" value="{{.Form.src_port}}" inputmode="numeric" required></label>
     </div>
     <div class="cols">
@@ -102,9 +102,9 @@
   <form method="post" action="/databases/instances" class="stack">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
     <p class="muted small">Otro servidor MySQL o MariaDB para explorar (por ejemplo, el de un cPanel antes de migrarlo). Con un usuario de solo lectura puedes explorar, pero no eliminar registros.</p>
-    <label>Nombre (opcional)<input name="name" value="{{.Form.name}}" placeholder="cPanel 5sconsultores" autocomplete="off"></label>
+    <label>Nombre (opcional)<input name="name" value="{{.Form.name}}" placeholder="Hosting antiguo" autocomplete="off"></label>
     <div class="cols">
-      <label>Host<input name="host" value="{{.Form.host}}" placeholder="38.18.230.11" required autocomplete="off" spellcheck="false"></label>
+      <label>Host<input name="host" value="{{.Form.host}}" placeholder="198.51.100.20" required autocomplete="off" spellcheck="false"></label>
       <label>Puerto<input name="port" value="{{.Form.port}}" inputmode="numeric" required></label>
     </div>
     <div class="cols">
