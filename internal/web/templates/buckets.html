@@ -3,7 +3,7 @@
 <div class="page-head">
   <div>
     <h1>Buckets</h1>
-    <p class="sub">Espacio usado en tus buckets S3 y en sus carpetas, de mayor a menor. world solo lee: nunca modifica ni borra archivos.</p>
+    <p class="sub">Espacio usado en tus buckets S3 y en sus carpetas, de mayor a menor. world solo lee: nunca modifica ni borra tus archivos (la única excepción es la carpeta <code>world-backups/</code>, si guardas ahí los backups de un sitio).</p>
   </div>
   {{if .Buckets}}<div class="actions"><a class="button primary" href="/buckets/new">{{icon "plus"}} Agregar bucket</a></div>{{end}}
 </div>

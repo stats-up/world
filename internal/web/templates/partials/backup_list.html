@@ -1,0 +1,42 @@
+{{define "backup_list"}}
+<div id="backup-list"{{if .Polling}} hx-get="/sites/{{.SiteID}}/backups/list" hx-trigger="every 3s" hx-swap="outerHTML"{{end}}>
+  {{if eq .Busy "restore"}}<div class="flash small">{{icon "refresh"}}<span>Restaurando… no cierres esto pensando que terminó: el resultado aparece en la fila del respaldo.</span></div>{{end}}
+  {{if .Backups}}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Fecha</th><th class="hide-sm">Origen</th><th>Estado</th><th class="num">Tamaño</th><th class="hide-sm">Dónde</th><th></th></tr></thead>
+    <tbody>
+    {{range .Backups}}
+    <tr>
+      <td>{{$.Local .StartedAt}}<br><span class="muted small"><code>{{.DBName}}</code>{{with .Duration}} · {{.}}{{end}}</span></td>
+      <td class="hide-sm">{{if eq .Source "auto"}}programado{{else if eq .Source "pre-restore"}}antes de restaurar{{else}}manual{{end}}</td>
+      <td>{{if .Running}}<span class="badge accent">en curso</span>{{else if .OK}}<span class="badge ok">OK</span>{{else}}<span class="badge err">falló</span>{{end}}
+        {{with .Error}}<div class="small muted">{{.}}</div>{{end}}
+        {{if not .RestoredAt.IsZero}}<div class="small">{{if .RestoreError}}<span class="badge err">restauración falló</span> <span class="muted">{{.RestoreError}}</span>{{else}}<span class="badge ok">restaurado</span> <span class="muted">{{$.Local .RestoredAt}}</span>{{end}}</div>{{end}}</td>
+      <td class="num">{{if .Bytes}}{{size .Bytes}}{{end}}</td>
+      <td class="hide-sm small">{{if .OnDisk}}disco{{end}}{{if and .OnDisk .BucketKey}} + {{end}}{{if .BucketKey}}bucket{{end}}</td>
+      <td class="num nowrap">{{if .OK}}
+        <a class="button sm ghost" href="/sites/{{$.SiteID}}/backups/{{.ID}}/download" title="Descargar" aria-label="Descargar">{{icon "download"}}</a>
+        <form method="post" action="/sites/{{$.SiteID}}/backups/{{.ID}}/restore" class="inline"
+              data-confirm="¿Restaurar el respaldo del {{$.Local .StartedAt}}?"
+              data-confirm-text="Se reemplazan las tablas de la base {{.DBName}} con las de este respaldo; los datos guardados después de esa fecha se pierden. Antes se hace un respaldo del estado actual para poder volver atrás."
+              data-confirm-button="Sí, restaurar">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <button type="submit" class="sm ghost" title="Restaurar" aria-label="Restaurar"{{if $.Busy}} disabled{{end}}>{{icon "back"}}</button>
+        </form>{{end}}
+        {{if not .Running}}<form method="post" action="/sites/{{$.SiteID}}/backups/{{.ID}}/delete" class="inline"
+              data-confirm="¿Eliminar el respaldo del {{$.Local .StartedAt}}?"
+              data-confirm-text="Se borra el archivo {{if .File}}{{.File}} {{end}}{{if .OnDisk}}del disco{{end}}{{if and .OnDisk .BucketKey}} y {{end}}{{if .BucketKey}}del bucket{{end}}. No se puede recuperar."
+              data-confirm-button="Sí, eliminar">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <button type="submit" class="sm ghost" title="Eliminar" aria-label="Eliminar">{{icon "trash"}}</button>
+        </form>{{end}}
+      </td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  {{else}}
+  <p class="muted small table-note">Aún no hay respaldos. Usa "Respaldar ahora" o activa la programación.</p>
+  {{end}}
+</div>
+{{end}}

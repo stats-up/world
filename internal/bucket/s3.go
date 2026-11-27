@@ -1,5 +1,6 @@
 // Package bucket mide el espacio usado en buckets S3 (Lightsail, AWS u otros compatibles)
-// y por carpeta. Solo lee: lista los objetos con ListObjectsV2, nunca escribe ni borra.
+// y por carpeta (solo lectura, con ListObjectsV2). Los backups usan además Put, Get y Delete
+// sobre sus propios archivos.
 package bucket
 
 import (
@@ -112,7 +113,7 @@ func s3Error(status int, body []byte) error {
 	case "InvalidAccessKeyId", "SignatureDoesNotMatch":
 		return fmt.Errorf("las llaves de acceso no son válidas (%s)", e.Code)
 	case "AccessDenied":
-		return errors.New("las llaves no tienen permiso para listar este bucket (AccessDenied)")
+		return errors.New("las llaves no tienen permiso para esta operación en el bucket (AccessDenied)")
 	case "NoSuchBucket":
 		return errors.New("el bucket no existe (NoSuchBucket)")
 	case "PermanentRedirect", "AuthorizationHeaderMalformed", "IllegalLocationConstraintException":
@@ -123,12 +124,14 @@ func s3Error(status int, body []byte) error {
 	return fmt.Errorf("%s: %s", e.Code, e.Message)
 }
 
-// sign firma la petición con AWS Signature V4 (cabeceras host, x-amz-content-sha256 y x-amz-date).
-func sign(req *http.Request, c Creds, now time.Time) {
+// sign firma una petición sin cuerpo con AWS Signature V4 (cabeceras host, x-amz-content-sha256 y x-amz-date).
+func sign(req *http.Request, c Creds, now time.Time) { signPayload(req, c, now, emptyHash) }
+
+func signPayload(req *http.Request, c Creds, now time.Time, payloadHash string) {
 	amzDate := now.UTC().Format("20060102T150405Z")
 	day := amzDate[:8]
 	req.Header.Set("x-amz-date", amzDate)
-	req.Header.Set("x-amz-content-sha256", emptyHash)
+	req.Header.Set("x-amz-content-sha256", payloadHash)
 	path := req.URL.EscapedPath()
 	if path == "" {
 		path = "/"
@@ -136,8 +139,8 @@ func sign(req *http.Request, c Creds, now time.Time) {
 	const signed = "host;x-amz-content-sha256;x-amz-date"
 	creq := strings.Join([]string{
 		req.Method, path, canonicalQuery(req.URL.Query()),
-		"host:" + req.URL.Host + "\nx-amz-content-sha256:" + emptyHash + "\nx-amz-date:" + amzDate + "\n",
-		signed, emptyHash,
+		"host:" + req.URL.Host + "\nx-amz-content-sha256:" + payloadHash + "\nx-amz-date:" + amzDate + "\n",
+		signed, payloadHash,
 	}, "\n")
 	scope := day + "/" + c.Region + "/s3/aws4_request"
 	h := sha256.Sum256([]byte(creq))

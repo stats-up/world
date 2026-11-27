@@ -222,6 +222,36 @@ var migrations = []string{
 
 	// 12: alias que redirigen al principal aunque los demás no (ej. solo el www).
 	`ALTER TABLE sites ADD COLUMN redirect_domains TEXT NOT NULL DEFAULT '';`,
+
+	// 13: backups de la base de datos de cada sitio (se activan por sitio).
+	`CREATE TABLE backup_configs (
+		site_id   INTEGER PRIMARY KEY,
+		enabled   INTEGER NOT NULL DEFAULT 0,
+		dest      TEXT NOT NULL DEFAULT 'disk',
+		bucket_id INTEGER NOT NULL DEFAULT 0,
+		days      TEXT NOT NULL DEFAULT '1234567',
+		hours     TEXT NOT NULL DEFAULT '3',
+		keep      INTEGER NOT NULL DEFAULT 7
+	);
+	CREATE TABLE backups (
+		id            INTEGER PRIMARY KEY AUTOINCREMENT,
+		site_id       INTEGER NOT NULL,
+		site_name     TEXT NOT NULL,
+		db_name       TEXT NOT NULL DEFAULT '',
+		source        TEXT NOT NULL,
+		status        TEXT NOT NULL,
+		error         TEXT NOT NULL DEFAULT '',
+		bytes         INTEGER NOT NULL DEFAULT 0,
+		file          TEXT NOT NULL DEFAULT '',
+		on_disk       INTEGER NOT NULL DEFAULT 0,
+		bucket_id     INTEGER NOT NULL DEFAULT 0,
+		bucket_key    TEXT NOT NULL DEFAULT '',
+		started_at    INTEGER NOT NULL,
+		finished_at   INTEGER NOT NULL DEFAULT 0,
+		restored_at   INTEGER NOT NULL DEFAULT 0,
+		restore_error TEXT NOT NULL DEFAULT ''
+	);
+	CREATE INDEX backups_site ON backups(site_id, started_at);`,
 }
 
 func (s *Store) migrate() error {

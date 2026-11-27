@@ -1,0 +1,72 @@
+{{define "title"}}Backups · {{.Site.Name}}{{end}}
+{{define "content"}}
+<nav class="crumbs"><a href="/">Sitios</a>{{icon "chevron"}}<a href="/sites/{{.Site.ID}}">{{.Site.Name}}</a>{{icon "chevron"}}<span>Backups</span></nav>
+<div class="page-head">
+  <div class="page-title">
+    <span class="avatar">{{icon "database"}}</span>
+    <div>
+      <h1>Backups de la base de datos {{if .Cfg.Enabled}}<span class="badge ok">activos</span>{{else}}<span class="badge muted">desactivados</span>{{end}}</h1>
+      <p class="sub">{{with .Target}}<code>{{.Database}}</code> en <code>{{.Host}}:{{.Port}}</code> · usuario <code>{{.User}}</code>{{else}}sin base de datos MySQL configurada{{end}}</p>
+    </div>
+  </div>
+  <div class="actions">
+    {{if .Target}}<form method="post" action="/sites/{{.Site.ID}}/backups/run" class="inline">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <button type="submit" class="primary"{{if .Busy}} disabled{{end}}>{{icon "download"}} Respaldar ahora</button>
+    </form>{{end}}
+  </div>
+</div>
+
+{{with .TargetError}}<div class="flash error">{{icon "alert"}}<div>No se puede respaldar este sitio: {{.}}<br><span class="small">world lee la conexión de las variables del sitio (<code>DB_CONNECTION</code>, <code>DB_HOST</code>, <code>DB_PORT</code>, <code>DB_DATABASE</code>, <code>DB_USERNAME</code>, <code>DB_PASSWORD</code>), las mismas que usa Laravel.</span></div></div>{{end}}
+{{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+
+<div class="stats">
+  <div class="stat"><span>En el disco del servidor</span><strong>{{size .DiskUsage}}</strong><small>copias de este sitio</small></div>
+  <div class="stat"><span>Copias que se guardan</span><strong>{{.Cfg.Keep}}</strong><small>las más antiguas se borran</small></div>
+  <div class="stat"><span>Hora del servidor</span><strong class="small">{{.Now.Format "15:04"}}</strong><small>hora de Chile</small></div>
+</div>
+
+<form method="post" action="/sites/{{.Site.ID}}/backups/config" class="card form-sections">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+
+  <div class="section"><div class="section-head"><h3>Programación</h3><p>Desactivados no corren ni ocupan espacio. "Respaldar ahora" funciona igual aunque estén desactivados.</p></div>
+  <fieldset>
+    <label class="check"><input type="checkbox" name="enabled" value="1"{{if .Cfg.Enabled}} checked{{end}}> <span><strong>Respaldar automáticamente</strong> la base de datos de este sitio</span></label>
+    <div><span class="small">Días</span><div class="inline-checks">
+      {{range .Days}}<label class="check"><input type="checkbox" name="days" value="{{.Num}}"{{if $.Cfg.HasDay .N}} checked{{end}}> <span>{{.Name}}</span></label>{{end}}
+    </div></div>
+    <label>Horas (hora de Chile, de 0 a 23, separadas por coma)
+      <input name="hours" value="{{.Cfg.HoursText}}" placeholder="3" inputmode="numeric">
+      <small>Ej: <code>3</code> = todos los días elegidos a las 03:00; <code>3, 15</code> = dos veces al día.</small></label>
+    <label>Copias correctas que se guardan (1 a 365)
+      <input type="number" name="keep" min="1" max="365" value="{{.Cfg.Keep}}">
+      <small>Al terminar un respaldo se borran las copias más antiguas (manuales y automáticas) que pasen de esta cantidad.</small></label>
+  </fieldset></div>
+
+  <div class="section"><div class="section-head"><h3>Destino</h3><p>Dónde quedan los archivos <code>.sql.gz</code>.</p></div>
+  <fieldset>
+    <label class="check"><input type="radio" name="dest" value="disk"{{if eq .Cfg.Dest "disk"}} checked{{end}}>
+      <span><strong>Disco del servidor</strong> (rápido de restaurar; ocupa espacio del servidor)</span></label>
+    <label class="check"><input type="radio" name="dest" value="bucket"{{if eq .Cfg.Dest "bucket"}} checked{{end}}>
+      <span><strong>Bucket S3</strong> (no ocupa el disco; queda fuera del servidor)</span></label>
+    <label class="check"><input type="radio" name="dest" value="both"{{if eq .Cfg.Dest "both"}} checked{{end}}>
+      <span><strong>Ambos</strong> (copia local y otra fuera del servidor)</span></label>
+    <label>Bucket
+      <select name="bucket_id">
+        <option value="0">— elegir —</option>
+        {{range .Buckets}}<option value="{{.ID}}"{{if eq .ID $.Cfg.BucketID}} selected{{end}}>{{.Name}} ({{.Bucket}})</option>{{end}}
+      </select>
+      <small>{{if .Buckets}}Se guardan en la carpeta <code>world-backups/{{.Site.Name}}/</code>. La llave del bucket necesita permiso para escribir y borrar.{{else}}No hay buckets: agrégalos en <a href="/buckets">Buckets</a>.{{end}}</small></label>
+  </fieldset></div>
+
+  <div class="form-foot">
+    <button type="submit" class="primary">{{icon "check"}} Guardar</button>
+  </div>
+</form>
+
+<section class="card flush">
+  <div class="row"><h2>{{icon "clock"}} Respaldos</h2></div>
+  {{with .ListError}}<div class="flash error small">{{.}}</div>{{end}}
+  {{template "backup_list" .List}}
+</section>
+{{end}}

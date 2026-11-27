@@ -11,6 +11,7 @@
   </div>
   <div class="actions">
     {{with .Container}}{{if eq .State "running"}}<a class="button" href="/sites/{{$.Site.ID}}/console">{{icon "terminal"}} Consola</a>{{end}}{{end}}
+    <a class="button" href="/sites/{{.Site.ID}}/backups">{{icon "database"}} Backups</a>
     <a class="button" href="/sites/{{.Site.ID}}/edit">{{icon "edit"}} Editar</a>
     <form method="post" action="/sites/{{.Site.ID}}/deploy" class="inline">
       <input type="hidden" name="csrf" value="{{.CSRF}}">
@@ -139,7 +140,7 @@
   <p class="muted small">Elimina el contenedor, las imágenes y la configuración. No se puede deshacer. Los volúmenes de datos (carpetas persistentes) se conservan.</p>
   <form method="post" action="/sites/{{.Site.ID}}/delete" class="inline-form"
         data-confirm="¿Eliminar el sitio {{.Site.Name}}?"
-        data-confirm-text="Se eliminan su contenedor, sus imágenes y su configuración. No se puede deshacer. Las carpetas persistentes se conservan."
+        data-confirm-text="Se eliminan su contenedor, sus imágenes y su configuración. También se borran sus backups del disco del servidor (los del bucket se conservan). No se puede deshacer. Las carpetas persistentes se conservan."
         data-confirm-button="Sí, eliminar el sitio">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
     <input name="confirm" placeholder="Escribe {{.Site.Name}} para confirmar" required autocomplete="off">

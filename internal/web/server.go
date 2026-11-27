@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"world/internal/auth"
+	"world/internal/backup"
 	"world/internal/bucket"
 	"world/internal/dbmigrate"
 	"world/internal/config"
@@ -52,6 +53,7 @@ type Server struct {
 	mailAPI *mail.Client
 	imports *mail.Importer
 	buckets *bucket.Scanner
+	backups *backup.Manager
 	dbmig   *dbmigrate.Migrator
 	mon     *monitor.Monitor
 	php     *phpcheck.Checker
@@ -69,6 +71,7 @@ func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box,
 	s.mailAPI = mail.NewClient(dc, adminSecret)
 	s.imports = mail.NewImporter(dc, cfg, st, adminSecret)
 	s.buckets = bucket.NewScanner(st, box)
+	s.backups = backup.New(dc, cfg, st, box)
 	s.dbmig = dbmigrate.NewMigrator(dc, cfg, st, s.mainDB)
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
@@ -201,6 +204,13 @@ func (s *Server) Handler() http.Handler {
 	priv("GET /sites/{id}/console/ws", s.siteConsoleWS)
 	priv("GET /sites/{id}/files", s.siteFiles)
 	priv("GET /sites/{id}/files/download", s.siteFileDownload)
+	priv("GET /sites/{id}/backups", s.siteBackups)
+	priv("GET /sites/{id}/backups/list", s.siteBackupsList)
+	priv("POST /sites/{id}/backups/config", s.siteBackupsConfig)
+	priv("POST /sites/{id}/backups/run", s.siteBackupRun)
+	priv("GET /sites/{id}/backups/{bid}/download", s.siteBackupDownload)
+	priv("POST /sites/{id}/backups/{bid}/restore", s.siteBackupRestore)
+	priv("POST /sites/{id}/backups/{bid}/delete", s.siteBackupDelete)
 	priv("GET /deployments/{id}", s.deploymentShow)
 	priv("GET /deployments/{id}/log", s.deploymentLog)
 	priv("GET /settings", s.settingsForm)

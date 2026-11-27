@@ -2,7 +2,7 @@
 {{define "content"}}
 <nav class="crumbs"><a href="/buckets">Buckets</a>{{icon "chevron"}}<span>Agregar</span></nav>
 <div class="page-head"><div><h1>Agregar bucket</h1>
-  <p class="sub">world lista los objetos para medir el espacio. Basta con llaves de solo lectura.</p></div></div>
+  <p class="sub">world lista los objetos para medir el espacio. Basta con llaves de solo lectura (para guardar backups de sitios en el bucket, la llave también debe poder escribir y borrar).</p></div></div>
 
 {{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
 <form method="post" action="/buckets" class="card stack">

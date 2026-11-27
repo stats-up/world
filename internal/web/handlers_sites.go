@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/mail"
@@ -387,6 +388,11 @@ func (s *Server) siteDelete(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, fmt.Sprintf("/sites/%d", site.ID))
 		return
 	}
+	if s.backups.Busy(site.ID) != "" {
+		s.setFlash(w, "error", "Hay un backup o una restauración en curso: espera a que termine para eliminar el sitio.")
+		redirect(w, r, fmt.Sprintf("/sites/%d", site.ID))
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 	defer cancel()
 	if err := s.engine.Remove(ctx, site); err != nil {
@@ -398,6 +404,9 @@ func (s *Server) siteDelete(w http.ResponseWriter, r *http.Request) {
 		for _, d := range deps {
 			os.Remove(s.engine.LogPath(d.ID))
 		}
+	}
+	if err := s.backups.ForgetSite(site.ID); err != nil {
+		log.Printf("borrando backups de %s: %v", site.Name, err)
 	}
 	if err := s.st.DeleteSite(site.ID); err != nil {
 		s.setFlash(w, "error", err.Error())

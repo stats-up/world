@@ -491,3 +491,8 @@ code.secret { font-size: 1.05rem; padding: .4rem .6rem; user-select: all; overfl
 .sql-review { border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); }
 .sql-result { display: grid; gap: .5rem; padding-top: .75rem; border-top: 1px solid var(--border); }
 .sql-result.failed .sql-short { color: var(--err); }
+
+/* Backups */
+.nowrap { white-space: nowrap; }
+.inline-checks { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin-top: .35rem; }
+.inline-checks .check { margin: 0; }
