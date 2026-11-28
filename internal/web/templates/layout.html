@@ -6,15 +6,15 @@
   <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
   <meta name="color-scheme" content="light dark">
   <title>{{block "title" .}}world{{end}} · world</title>
-  <link rel="icon" href="/static/favicon.svg?v={{.Version}}" type="image/svg+xml">
-  <link rel="icon" href="/static/favicon-32.png?v={{.Version}}" type="image/png" sizes="32x32">
-  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v={{.Version}}">
-  <link rel="stylesheet" href="/static/app.css?v={{.Version}}">
+  <link rel="icon" href="/static/favicon.svg?v={{.AssetVer}}" type="image/svg+xml">
+  <link rel="icon" href="/static/favicon-32.png?v={{.AssetVer}}" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v={{.AssetVer}}">
+  <link rel="stylesheet" href="/static/app.css?v={{.AssetVer}}">
   <link rel="stylesheet" href="/static/sweetalert2/sweetalert2.min.css">
   <script src="/static/htmx.min.js" defer></script>
   <script src="/static/sweetalert2/sweetalert2.min.js" defer></script>
-  <script src="/static/confirm.js?v={{.Version}}" defer></script>
-  <script src="/static/ui.js?v={{.Version}}" defer></script>
+  <script src="/static/confirm.js?v={{.AssetVer}}" defer></script>
+  <script src="/static/ui.js?v={{.AssetVer}}" defer></script>
   {{block "head" .}}{{end}}
 </head>
 <body class="{{if .User}}app{{else}}auth{{end}}"{{if .CSRF}} hx-headers='{"X-CSRF-Token": "{{.CSRF}}"}'{{end}}>
@@ -32,6 +32,7 @@
       <a href="/mail"{{if navOn .Path "/mail"}} class="on" aria-current="page"{{end}}>{{icon "mail"}} Correo</a>
       <a href="/buckets"{{if navOn .Path "/buckets"}} class="on" aria-current="page"{{end}}>{{icon "cloud"}} Buckets</a>
       <a href="/databases"{{if navOn .Path "/databases"}} class="on" aria-current="page"{{end}}>{{icon "database"}} Bases de datos</a>
+      <a href="/security"{{if navOn .Path "/security"}} class="on" aria-current="page"{{end}}>{{icon "shield"}} Seguridad</a>
       <a href="/settings"{{if navOn .Path "/settings"}} class="on" aria-current="page"{{end}}>{{icon "settings"}} Ajustes</a>
     </nav>
     <div class="nav nav-foot">
@@ -44,6 +45,16 @@
     </div>
   </aside>
   <main class="main">
+    {{with .LoginAlerts}}<div class="flash warn login-alerts" role="alert">{{icon "shield"}}<div>
+      <strong>Revisa estos accesos a tu cuenta</strong>
+      <ul>{{range .}}<li>{{if .OK}}Nuevo acceso desde la IP <code>{{.IP}}</code>, que tu cuenta no había usado antes{{else}}Alguien escribió <strong>tu contraseña correcta</strong> desde la IP <code>{{.IP}}</code>, pero falló el código 2FA{{end}}
+        <span class="small">· {{ua .UserAgent}} · {{when .At}}</span></li>{{end}}</ul>
+      <p class="small">Si no fuiste tú: cambia tu contraseña en <a href="/profile">Perfil</a> y cierra las sesiones que no reconozcas en <a href="/security">Seguridad</a>.</p>
+      <form method="post" action="/security/alerts/ack" class="inline">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="back" value="{{$.Path}}">
+        <button type="submit" class="sm">{{icon "check"}} Fui yo, ocultar</button>
+      </form>
+    </div></div>{{end}}
     {{with .Flash}}<div class="flash {{.Kind}}">{{if eq .Kind "ok"}}{{icon "check"}}{{else if eq .Kind "error"}}{{icon "alert"}}{{end}}<div>{{.Msg}}</div></div>{{end}}
     {{template "content" .}}
   </main>
@@ -52,7 +63,6 @@
     <div class="auth-brand"><span class="brand-mark lg">{{icon "logo"}}</span><span>world</span></div>
     {{with .Flash}}<div class="flash {{.Kind}}"><div>{{.Msg}}</div></div>{{end}}
     {{template "content" .}}
-    <p class="version">world {{.Version}}</p>
   </main>
   {{end}}
 </body>

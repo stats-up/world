@@ -3,6 +3,7 @@
 <div class="page-head"><div class="page-title"><span class="avatar">{{icon "user"}}</span>
   <div><h1>Perfil</h1><p class="sub">{{.User.Email}}</p></div></div></div>
 
+{{if .Must2FA}}<div class="flash warn">{{icon "shield"}}<div><strong>Este panel exige 2FA.</strong> Configúralo abajo para seguir usando el panel.</div></div>{{end}}
 <div class="grid">
   <section class="card">
     <h2>{{icon "key"}} Cambiar contraseña</h2>

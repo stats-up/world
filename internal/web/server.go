@@ -12,14 +12,13 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"world/internal/auth"
 	"world/internal/backup"
 	"world/internal/bucket"
-	"world/internal/dbmigrate"
 	"world/internal/config"
+	"world/internal/dbmigrate"
 	"world/internal/deploy"
 	"world/internal/docker"
 	"world/internal/mail"
@@ -59,14 +58,24 @@ type Server struct {
 	php     *phpcheck.Checker
 	version string
 
-	pages    map[string]*template.Template
-	partials *template.Template
-	limiter  *limiter
+	pages     map[string]*template.Template
+	partials  *template.Template
+	limiter   *limiter // intentos fallidos por IP
+	acctLim   *limiter // por cuenta
+	mfaLim    *limiter // por sesión que espera el código 2FA
+	lockedLog *limiter
+	pwSem     chan struct{}
+	totp      totpGuard
+	assetVer  string
 }
 
 func New(cfg config.Config, st *store.Store, dc *docker.Client, box *secret.Box, engine *deploy.Engine, poller *deploy.Poller, cron *deploy.Cron, px *proxy.Manager, mx *mail.Manager, mon *monitor.Monitor, php *phpcheck.Checker, version string) (*Server, error) {
 	s := &Server{cfg: cfg, st: st, dc: dc, box: box, engine: engine, poller: poller, cron: cron, proxy: px, mail: mx, mon: mon, php: php, version: version,
-		pages: map[string]*template.Template{}, limiter: newLimiter(10, 15*time.Minute)}
+		pages: map[string]*template.Template{}, limiter: newLimiter(maxFailsPerIP, loginWindow),
+		acctLim: newLimiter(maxFailsPerAcct, loginWindow), mfaLim: newLimiter(maxFailsPer2FA, mfaTTL),
+		lockedLog: newLimiter(1, loginWindow), pwSem: make(chan struct{}, maxConcurrentPW),
+		// Para que el navegador no use archivos viejos tras actualizar, sin publicar la versión exacta.
+		assetVer: auth.RandomToken(6)}
 	adminSecret := func() string { return mail.LoadSettings(st, box).AdminSecret }
 	s.mailAPI = mail.NewClient(dc, adminSecret)
 	s.imports = mail.NewImporter(dc, cfg, st, adminSecret)
@@ -97,6 +106,13 @@ var funcs = template.FuncMap{
 		return t.Format("2006-01-02 15:04")
 	},
 	"join": strings.Join,
+	"ua":   uaSummary,
+	"when": func(t time.Time) string {
+		if t.IsZero() {
+			return ""
+		}
+		return t.In(chileLoc).Format("2006-01-02 15:04")
+	},
 	"icon": icon,
 	// bar dibuja una barra de porcentaje en SVG (la CSP no permite style="width:…").
 	"bar": func(pct int) template.HTML { return monBar{Pct: float64(pct), Level: level(float64(pct))}.Bar() },
@@ -176,7 +192,13 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		http.ServeFileFS(w, r, assets, "static/favicon.ico")
 	})
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok " + s.version)) })
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		if fromLoopback(r) {
+			w.Write([]byte("ok " + s.version))
+			return
+		}
+		w.Write([]byte("ok"))
+	})
 	mux.HandleFunc("GET /health", s.health)
 
 	mux.HandleFunc("GET /setup", s.setupForm)
@@ -273,6 +295,11 @@ func (s *Server) Handler() http.Handler {
 	priv("POST /profile/2fa/start", s.mfaStart)
 	priv("POST /profile/2fa/enable", s.mfaEnable)
 	priv("POST /profile/2fa/disable", s.mfaDisable)
+	priv("GET /security", s.security)
+	priv("POST /security/2fa", s.securityRequire2FA)
+	priv("POST /security/sessions/close", s.securitySessionClose)
+	priv("POST /security/sessions/close-others", s.securitySessionsCloseOthers)
+	priv("POST /security/alerts/ack", s.securityAlertsAck)
 
 	return sourceGuard(&trustedProxy{lookup: s.traefikIPs}, securityHeaders(mux))
 }
@@ -336,6 +363,14 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 				return
 			}
 		}
+		if time.Since(sess.LastSeen) > touchEvery {
+			s.st.TouchSession(hash, time.Now())
+		}
+		if s.needs2FASetup(user, r) {
+			s.setFlash(w, "error", "El 2FA es obligatorio en este panel: configúralo para seguir.")
+			redirect(w, r, "/profile")
+			return
+		}
 		ctx := context.WithValue(r.Context(), userKey, user)
 		ctx = context.WithValue(ctx, sessKey, sess)
 		ctx = context.WithValue(ctx, tokenKey, hash)
@@ -366,9 +401,18 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, d d
 	if d == nil {
 		d = data{}
 	}
-	d["Version"] = s.version
+	d["AssetVer"] = s.assetVer
 	d["Path"] = r.URL.Path
-	d["User"] = currentUser(r)
+	if u := currentUser(r); u != nil {
+		// La versión exacta solo se muestra dentro del panel (el código es público).
+		d["Version"] = s.version
+		d["User"] = u
+		hash, _ := r.Context().Value(tokenKey).(string)
+		d["LoginAlerts"], _ = s.st.LoginAlerts(u.ID, hash)
+		if s.require2FA() && !u.TOTPEnabled {
+			d["Must2FA"] = true
+		}
+	}
 	if sess := currentSession(r); sess != nil {
 		d["CSRF"] = sess.CSRF
 	}
@@ -442,46 +486,4 @@ func pathID(r *http.Request) (int64, error) {
 		return 0, errors.New("id inválido")
 	}
 	return id, nil
-}
-
-// limiter limita intentos de login fallidos por IP.
-type limiter struct {
-	mu     sync.Mutex
-	max    int
-	window time.Duration
-	hits   map[string][]time.Time
-}
-
-func newLimiter(max int, window time.Duration) *limiter {
-	return &limiter{max: max, window: window, hits: map[string][]time.Time{}}
-}
-
-func (l *limiter) blocked(key string) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	cutoff := time.Now().Add(-l.window)
-	var recent []time.Time
-	for _, t := range l.hits[key] {
-		if t.After(cutoff) {
-			recent = append(recent, t)
-		}
-	}
-	if len(recent) == 0 {
-		delete(l.hits, key)
-	} else {
-		l.hits[key] = recent
-	}
-	return len(recent) >= l.max
-}
-
-func (l *limiter) fail(key string) {
-	l.mu.Lock()
-	l.hits[key] = append(l.hits[key], time.Now())
-	l.mu.Unlock()
-}
-
-func (l *limiter) reset(key string) {
-	l.mu.Lock()
-	delete(l.hits, key)
-	l.mu.Unlock()
 }

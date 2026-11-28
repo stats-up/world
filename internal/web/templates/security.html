@@ -1,0 +1,91 @@
+{{define "title"}}Seguridad{{end}}
+{{define "content"}}
+<div class="page-head"><div class="page-title"><span class="avatar">{{icon "shield"}}</span>
+  <div><h1>Seguridad</h1><p class="sub">Quién entra al panel, desde dónde, y las sesiones abiertas. Fechas en hora de Chile.</p></div></div></div>
+{{with .Error}}<div class="flash error">{{icon "alert"}}<div>{{.}}</div></div>{{end}}
+
+<div class="grid">
+  <section class="card">
+    <h2>{{icon "lock"}} 2FA obligatorio {{if .Require2FA}}<span class="badge ok">activo</span>{{else}}<span class="badge muted">no</span>{{end}}</h2>
+    <p class="small muted">Si está activo, toda cuenta sin 2FA debe configurarlo al entrar antes de usar el panel, y nadie puede desactivar el suyo.
+      Quien entra al panel controla el servidor: con 2FA, una contraseña filtrada no basta.</p>
+    {{if .Require2FA}}
+    <form method="post" action="/security/2fa"
+          data-confirm="¿Dejar de exigir 2FA?"
+          data-confirm-text="Las cuentas podrán entrar solo con contraseña y desactivar su 2FA. Una contraseña filtrada bastaría para controlar el servidor."
+          data-confirm-button="Sí, dejar de exigir">
+      <input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="require" value="0">
+      <button type="submit" class="danger">Dejar de exigir 2FA</button>
+    </form>
+    {{else}}
+    <form method="post" action="/security/2fa">
+      <input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="require" value="1">
+      <button type="submit" class="primary"{{if not .User.TOTPEnabled}} disabled{{end}}>{{icon "shield"}} Exigir 2FA a todos</button>
+      {{if not .User.TOTPEnabled}}<p class="small">Primero activa tu propio 2FA en <a href="/profile">Perfil</a>.</p>{{end}}
+    </form>
+    {{end}}
+    <p class="small muted">Si pierdes el teléfono: <code>sudo world disable-2fa tu@correo</code> en el servidor y vuelve a configurarlo.</p>
+  </section>
+
+  <section class="card">
+    <h2>{{icon "activity"}} Protección del acceso</h2>
+    <ul class="small security-rules">
+      <li>10 intentos fallidos por IP (o red IPv6 /64) cada 15 min.</li>
+      <li>10 intentos fallidos por cuenta cada 15 min, vengan de las IPs que vengan; desde una IP con la que ya entraste bien puedes seguir intentando.</li>
+      <li>5 códigos 2FA incorrectos y hay que volver a escribir la contraseña. Cada código sirve una sola vez.</li>
+      <li>Aviso arriba de cada página si alguien entra desde una IP nueva o escribe tu contraseña correcta y falla el 2FA.</li>
+    </ul>
+  </section>
+</div>
+
+<section class="card flush">
+  <div class="row"><h2>{{icon "user"}} Tus sesiones</h2>
+    {{if gt (len .Sessions) 1}}<form method="post" action="/security/sessions/close-others" class="inline"
+          data-confirm="¿Cerrar todas tus otras sesiones?"
+          data-confirm-text="Se cierra el panel en todos los navegadores y equipos menos en este. Tendrán que volver a iniciar sesión."
+          data-confirm-button="Sí, cerrar las demás">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <button type="submit" class="sm">{{icon "logout"}} Cerrar todas las demás</button>
+    </form>{{end}}</div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Dispositivo</th><th>IP</th><th class="hide-sm">Inicio</th><th>Último uso</th><th></th></tr></thead>
+    <tbody>
+    {{range .Sessions}}
+    <tr>
+      <td>{{ua .UserAgent}} {{if eq .Hash $.CurrentHash}}<span class="badge accent">esta sesión</span>{{end}}{{if .MFAPending}}<span class="badge warn">esperando código 2FA</span>{{end}}</td>
+      <td><code>{{if .IP}}{{.IP}}{{else}}—{{end}}</code></td>
+      <td class="hide-sm small">{{if .CreatedAt.IsZero}}<span class="muted">antes del registro</span>{{else}}{{when .CreatedAt}}{{end}}</td>
+      <td class="small">{{ago .LastSeen}}</td>
+      <td class="num">{{if ne .Hash $.CurrentHash}}<form method="post" action="/security/sessions/close" class="inline">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="session" value="{{.Hash}}">
+        <button type="submit" class="sm ghost" title="Cerrar esta sesión" aria-label="Cerrar esta sesión">{{icon "logout"}}</button>
+      </form>{{end}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+</section>
+
+<section class="card flush">
+  <div class="row"><h2>{{icon "clock"}} Historial de accesos</h2><span class="muted small">últimos 200 · se guardan 180 días</span></div>
+  {{if .Events}}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Fecha</th><th>Resultado</th><th>Cuenta</th><th>IP</th><th class="hide-sm">Navegador</th></tr></thead>
+    <tbody>
+    {{range .Events}}
+    <tr>
+      <td class="small nowrap">{{when .At}}</td>
+      <td>{{if eq .Result "ok"}}<span class="badge ok">entró</span>{{if .NewIP}} <span class="badge warn">IP nueva</span>{{end}}
+        {{else if eq .Result "2fa"}}<span class="badge err">contraseña correcta, 2FA falló</span>
+        {{else if eq .Result "locked"}}<span class="badge err">bloqueado por exceso de intentos</span>
+        {{else}}<span class="badge muted">contraseña incorrecta</span>{{end}}</td>
+      <td class="small">{{if .Email}}{{.Email}}{{else}}<span class="muted">—</span>{{end}}{{if and (not .UserID) .Email}} <span class="muted">(no existe)</span>{{end}}</td>
+      <td><code>{{.IP}}</code></td>
+      <td class="hide-sm small">{{ua .UserAgent}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  {{else}}<p class="muted small table-note">Aún no hay accesos registrados.</p>{{end}}
+</section>
+{{end}}

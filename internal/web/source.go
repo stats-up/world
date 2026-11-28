@@ -112,6 +112,16 @@ func sourceGuard(tp *trustedProxy, next http.Handler) http.Handler {
 	})
 }
 
+// fromLoopback: la petición viene del mismo servidor (auto-update, curl local), no de Traefik.
+func fromLoopback(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 func clientIP(r *http.Request) string {
 	if ip, ok := r.Context().Value(clientIPKey{}).(string); ok {
 		return ip

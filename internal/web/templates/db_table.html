@@ -1,5 +1,5 @@
 {{define "title"}}{{.Table.Name}} · {{.DB}}{{end}}
-{{define "head"}}<script src="/static/db_table.js?v={{.Version}}" defer></script>{{end}}
+{{define "head"}}<script src="/static/db_table.js?v={{.AssetVer}}" defer></script>{{end}}
 {{define "content"}}
 <nav class="crumbs"><a href="/databases">Bases de datos</a>{{icon "chevron"}}<a href="/databases/x/{{.Inst.Key}}">{{.Inst.Name}}</a>{{icon "chevron"}}<a href="/databases/x/{{.Inst.Key}}/{{.DB}}">{{.DB}}</a>{{icon "chevron"}}<span>{{.Table.Name}}</span></nav>
 <div class="page-head"><div class="page-title"><span class="avatar">{{icon "database"}}</span><div>

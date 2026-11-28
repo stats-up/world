@@ -17,6 +17,10 @@ type Session struct {
 	CSRF       string
 	MFAPending bool
 	ExpiresAt  time.Time
+	IP         string
+	UserAgent  string
+	CreatedAt  time.Time
+	LastSeen   time.Time
 }
 
 const userCols = `id, email, password_hash, totp_secret, totp_enabled`
@@ -65,28 +69,88 @@ func (s *Store) SetTOTP(userID int64, secret string, enabled bool) error {
 	return err
 }
 
-func (s *Store) CreateSession(tokenHash string, userID int64, csrf string, mfaPending bool, expires time.Time) error {
-	_, err := s.db.Exec(`INSERT INTO sessions (token_hash, user_id, csrf, mfa_pending, expires_at) VALUES (?, ?, ?, ?, ?)`,
-		tokenHash, userID, csrf, boolInt(mfaPending), expires.Unix())
+// CreateSession guarda una sesión nueva; ip y userAgent son de quien inició sesión.
+func (s *Store) CreateSession(tokenHash string, userID int64, csrf string, mfaPending bool, expires time.Time, ip, userAgent string) error {
+	now := time.Now().Unix()
+	_, err := s.db.Exec(`INSERT INTO sessions (token_hash, user_id, csrf, mfa_pending, expires_at, ip, user_agent, created_at, last_seen)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		tokenHash, userID, csrf, boolInt(mfaPending), expires.Unix(), ip, userAgent, now, now)
 	return err
 }
 
-func (s *Store) Session(tokenHash string) (*Session, error) {
+const sessionCols = `user_id, csrf, mfa_pending, expires_at, ip, user_agent, created_at, last_seen`
+
+func scanSession(row interface{ Scan(...any) error }, extra ...any) (*Session, error) {
 	var sess Session
 	var pending int
-	var exp int64
-	err := s.db.QueryRow(`SELECT user_id, csrf, mfa_pending, expires_at FROM sessions WHERE token_hash = ?`, tokenHash).
-		Scan(&sess.UserID, &sess.CSRF, &pending, &exp)
-	if err != nil {
+	var exp, created, seen int64
+	dest := append([]any{&sess.UserID, &sess.CSRF, &pending, &exp, &sess.IP, &sess.UserAgent, &created, &seen}, extra...)
+	if err := row.Scan(dest...); err != nil {
 		return nil, notFound(err)
 	}
 	sess.MFAPending = pending == 1
 	sess.ExpiresAt = time.Unix(exp, 0)
+	if created > 0 {
+		sess.CreatedAt = time.Unix(created, 0)
+	}
+	if seen > 0 {
+		sess.LastSeen = time.Unix(seen, 0)
+	}
+	return &sess, nil
+}
+
+func (s *Store) Session(tokenHash string) (*Session, error) {
+	sess, err := scanSession(s.db.QueryRow(`SELECT `+sessionCols+` FROM sessions WHERE token_hash = ?`, tokenHash))
+	if err != nil {
+		return nil, err
+	}
 	if time.Now().After(sess.ExpiresAt) {
 		s.DeleteSession(tokenHash)
 		return nil, ErrNotFound
 	}
-	return &sess, nil
+	return sess, nil
+}
+
+// UserSession es una sesión con su identificador (el hash del token, nunca el token).
+type UserSession struct {
+	Hash string
+	*Session
+}
+
+// UserSessions: sesiones vigentes del usuario, la de uso más reciente primero.
+func (s *Store) UserSessions(userID int64) ([]UserSession, error) {
+	rows, err := s.db.Query(`SELECT `+sessionCols+`, token_hash FROM sessions WHERE user_id = ? AND expires_at > ?
+		ORDER BY last_seen DESC, created_at DESC`, userID, time.Now().Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []UserSession
+	for rows.Next() {
+		var hash string
+		sess, err := scanSession(rows, &hash)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, UserSession{Hash: hash, Session: sess})
+	}
+	return out, rows.Err()
+}
+
+// TouchSession anota el último uso de la sesión.
+func (s *Store) TouchSession(tokenHash string, at time.Time) error {
+	_, err := s.db.Exec(`UPDATE sessions SET last_seen = ? WHERE token_hash = ?`, at.Unix(), tokenHash)
+	return err
+}
+
+// DeleteUserSession cierra una sesión solo si es del usuario indicado.
+func (s *Store) DeleteUserSession(userID int64, tokenHash string) (bool, error) {
+	res, err := s.db.Exec(`DELETE FROM sessions WHERE user_id = ? AND token_hash = ?`, userID, tokenHash)
+	if err != nil {
+		return false, err
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
 }
 
 func (s *Store) CompleteMFA(tokenHash string) error {

@@ -21,7 +21,7 @@ type cronStatus struct {
 }
 
 type healthReport struct {
-	Version    string     `json:"version"`
+	Version    string     `json:"version,omitempty"`
 	OK         bool       `json:"ok"`
 	AutoDeploy cronStatus `json:"auto_deploy"`    // revisión de ramas de los sitios (dentro del panel)
 	SelfUpdate cronStatus `json:"self_update"`    // auto-update del propio panel (timer de systemd)
@@ -68,6 +68,9 @@ func (s *Server) healthStatus(ctx context.Context) healthReport {
 // health es público (sin login) para monitores externos tipo UptimeRobot: responde 503 si algún cron está detenido.
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	rep := s.healthStatus(r.Context())
+	if !fromLoopback(r) {
+		rep.Version = "" // desde internet no se publica la versión exacta (el código es público)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	if !rep.OK {

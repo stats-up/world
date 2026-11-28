@@ -119,6 +119,7 @@ func serve(cfg config.Config) error {
 	go srv.ResumeImports(ctx)
 	go srv.RunBucketScans(ctx)
 	go srv.RunBackups(ctx)
+	go srv.RunSecurity(ctx)
 	go php.Run(ctx)
 	go srv.ResumeDBMigrations(ctx)
 

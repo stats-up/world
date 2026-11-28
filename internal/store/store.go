@@ -252,6 +252,26 @@ var migrations = []string{
 		restore_error TEXT NOT NULL DEFAULT ''
 	);
 	CREATE INDEX backups_site ON backups(site_id, started_at);`,
+	// 14: seguridad del panel: datos de cada sesión e historial de accesos.
+	`ALTER TABLE sessions ADD COLUMN ip TEXT NOT NULL DEFAULT '';
+	ALTER TABLE sessions ADD COLUMN user_agent TEXT NOT NULL DEFAULT '';
+	ALTER TABLE sessions ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE sessions ADD COLUMN last_seen INTEGER NOT NULL DEFAULT 0;
+	CREATE TABLE login_events (
+		id           INTEGER PRIMARY KEY AUTOINCREMENT,
+		at           INTEGER NOT NULL,
+		user_id      INTEGER NOT NULL DEFAULT 0,
+		email        TEXT NOT NULL DEFAULT '',
+		ip           TEXT NOT NULL DEFAULT '',
+		ip_key       TEXT NOT NULL DEFAULT '',
+		user_agent   TEXT NOT NULL DEFAULT '',
+		result       TEXT NOT NULL,
+		new_ip       INTEGER NOT NULL DEFAULT 0,
+		session_hash TEXT NOT NULL DEFAULT '',
+		ack          INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE INDEX login_events_at ON login_events(at);
+	CREATE INDEX login_events_user ON login_events(user_id, result, ip_key);`,
 }
 
 func (s *Store) migrate() error {
